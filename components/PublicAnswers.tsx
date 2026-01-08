@@ -76,7 +76,7 @@ const PublicAnswers: React.FC<PublicAnswersProps> = ({ assessments, submissions 
                           </span>
                        </div>
                        <p className="text-sm font-bold text-slate-500 flex items-center gap-2 mt-1">
-                          <Shield size={14} className="text-slate-300" /> {anonymizedMap[viewingSubmission.staffName]} • Final Score: {Math.round(((viewingSubmission.autoScore + viewingSubmission.manualScore) / viewingSubmission.totalPossiblePoints) * 100)}%
+                          <Shield size={14} className="text-slate-300" /> {anonymizedMap[viewingSubmission.staffName] || 'Anonymous User'} • Final Score: {Math.round(((viewingSubmission.autoScore + viewingSubmission.manualScore) / viewingSubmission.totalPossiblePoints) * 100)}%
                        </p>
                     </div>
                  </div>

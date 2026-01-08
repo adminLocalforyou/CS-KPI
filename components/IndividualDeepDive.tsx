@@ -73,18 +73,28 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
     }
   };
 
+  // หากไม่พบพนักงานในระบบ ให้แสดงข้อความแจ้งเตือนแทนการ Crash
+  if (!staff) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-dashed border-slate-200 text-slate-400">
+        <AlertCircle size={48} className="mb-4" />
+        <p className="font-black uppercase tracking-widest">Staff Not Found</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-32">
       {/* Header Section */}
       <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="flex items-center gap-6">
           <div className="w-24 h-24 rounded-[2.5rem] bg-slate-900 text-white flex items-center justify-center text-3xl font-black">
-            {staff?.name.substring(0, 2).toUpperCase()}
+            {staff.name ? staff.name.substring(0, 2).toUpperCase() : '??'}
           </div>
           <div>
              <div className="flex items-center gap-3">
-               <h2 className="text-4xl font-black text-slate-800">{staff?.name}</h2>
-               <span className="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-widest">{staff?.role}</span>
+               <h2 className="text-4xl font-black text-slate-800">{staff.name}</h2>
+               <span className="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-widest">{staff.role}</span>
              </div>
              <p className="text-slate-400 font-bold text-sm mt-2">Overall Performance Index: <span className="text-slate-800 font-black">{overallIndividualScore}%</span></p>
           </div>
@@ -119,7 +129,7 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project count</p>
-               <Rocket size={20} className="text-blue-600" />
+               <rocket size={20} className="text-blue-600" />
             </div>
             <h4 className="text-5xl font-black tracking-tighter text-slate-900">{latestEval?.projectCount || 0}</h4>
             <p className="text-xs text-slate-400 font-medium">Total systems activated (Active logs).</p>
