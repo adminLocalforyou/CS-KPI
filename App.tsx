@@ -38,7 +38,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  // Add 'publicAnswers' to the activeTab types
+  // CRITICAL: Registered 'publicAnswers' in the activeTab literal types
   const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
@@ -80,7 +80,7 @@ const App: React.FC = () => {
         setActiveTestId(testId);
         setActiveTab('takeTest');
       } else if (hash === '') {
-        setActiveTab('dashboard');
+        // No hash means home or whatever activeTab is
       }
     };
     handleHash();
@@ -457,7 +457,7 @@ const App: React.FC = () => {
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           {activeTab === 'staffHub' && <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} testSubmissions={testSubmissions} />}
           {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} />}
-          {/* Ensure this line exists for rendering the new tab */}
+          {/* CRITICAL: Ensuring the rendering for publicAnswers is mapped to the component */}
           {activeTab === 'publicAnswers' && <PublicAnswers assessments={assessments} submissions={testSubmissions} />}
         </div>
       </main>
