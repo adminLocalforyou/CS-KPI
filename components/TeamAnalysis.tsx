@@ -45,22 +45,35 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // Prepare compact data for AI
-      const teamContext = teamPerformance.map(p => ({
-        name: p.name,
-        score: p.score
-      }));
+      // Prepare rich data for AI including new quantitative metrics
+      const teamContext = teamPerformance.map(p => {
+        const staffEvals = evaluations.filter(e => e.staffId === p.id);
+        const latestEval = staffEvals.length > 0 ? staffEvals[staffEvals.length - 1] : null;
+        
+        return {
+          name: p.name,
+          compositeScore: p.score,
+          individualSla: latestEval?.individualSlaPct || 0,
+          responseSpeed: latestEval?.responseTimePct || 0,
+          liveProjectsThisMonth: latestEval?.monthlyLiveCount || 0,
+          totalTasks: latestEval?.totalTasks || 0
+        };
+      });
 
       const prompt = `
-        Analyze this Customer Support team performance data:
+        Analyze this Customer Support team performance data.
+        Focus on Efficiency (Live projects, Response Speed) vs Quality (Composite score, SLA).
         Team Data: ${JSON.stringify(teamContext)}
         
         Task:
-        1. Identify overall team gaps (what skills are missing as a collective).
+        1. Identify overall team gaps (e.g., speed vs quality balance).
         2. Identify team strengths.
-        3. For INDIVIDUALS with a score BELOW 75% ONLY, provide a specific gap area and a recommendation for improvement. Do NOT include high performers (75% or higher) in individual insights.
+        3. Provide specific insights for individuals. 
+           - Look for those with high workload but low quality (Burnout risk).
+           - Look for those with high speed but low SLA (Accuracy issues).
+           - Highlight those with high 'Live projects' as key contributors.
         
-        Return the result in JSON format matching the schema.
+        Return the result in JSON format matching the schema. Insights must be in Thai.
       `;
 
       const response = await ai.models.generateContent({
@@ -117,8 +130,8 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
               {loading ? <Loader2 size={40} className="animate-spin" /> : <Sparkles size={40} />}
             </div>
             <div>
-              <h2 className="text-4xl font-black tracking-tight">AI Team Gap Analysis</h2>
-              <p className="text-slate-400 text-lg mt-1 font-medium italic">Automated intelligence analyzing team & individual weaknesses</p>
+              <h2 className="text-4xl font-black tracking-tight">AI Team Intelligence</h2>
+              <p className="text-slate-400 text-lg mt-1 font-medium italic">Analyzing Efficiency, SLA Accuracy, and Project Volume</p>
             </div>
           </div>
           <button 
@@ -134,7 +147,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 size={48} className="animate-spin text-blue-600" />
-          <p className="text-slate-400 font-black uppercase tracking-widest text-sm">AI is processing team data...</p>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-sm">AI is correlating SLA and Speed metrics...</p>
         </div>
       ) : analysis ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -159,7 +172,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-3">Identified Skill Gaps</label>
+                  <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-3">System Gaps & Risk Areas</label>
                   <div className="flex flex-wrap gap-2">
                     {analysis.teamGaps.map((g, i) => (
                       <span key={i} className="px-4 py-2 bg-rose-50 text-rose-700 rounded-xl font-bold text-sm flex items-center gap-2">
@@ -173,9 +186,9 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
 
             <div className="bg-indigo-900 p-10 rounded-[3rem] text-white space-y-6">
               <h4 className="text-lg font-black flex items-center gap-2">
-                <TrendingUp size={20} className="text-indigo-400" /> Team Performance Curve
+                <TrendingUp size={20} className="text-indigo-400" /> Efficiency Observation
               </h4>
-              <p className="text-indigo-200 text-sm italic">"The team shows consistent growth in Project Building but needs to focus more on SLA compliance for AI Receptionist deployments."</p>
+              <p className="text-indigo-200 text-sm italic">"ข้อมูล SLA และความเร็วในการตอบแชทช่วยให้เห็นว่าทีมรักษามาตรฐานได้ดีในงานโปรเจกต์ แต่ในส่วนของงาน Maintenance ยังมีคอขวดในบางช่วงเวลา"</p>
             </div>
           </div>
 
@@ -183,9 +196,9 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-                <Target className="text-rose-600" /> Individual Development Focus
+                <Target className="text-rose-600" /> Tailored Individual Analysis
               </h3>
-              <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-3 py-1 rounded-full">ALERTS: {analysis.individualInsights.length}</span>
+              <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-3 py-1 rounded-full">INSIGHTS: {analysis.individualInsights.length}</span>
             </div>
 
             {analysis.individualInsights.length > 0 ? (
@@ -199,21 +212,21 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
                         </div>
                         <p className="font-black text-slate-800">{insight.staffName}</p>
                       </div>
-                      <span className="px-3 py-1 bg-rose-100 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Adjustment Needed</span>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Efficiency Tip</span>
                     </div>
                     
                     <div className="space-y-4">
                       <div className="flex gap-3">
                         <div className="mt-1"><AlertCircle size={16} className="text-rose-500" /></div>
                         <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Specific Gap</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Focus Area</p>
                           <p className="text-sm font-bold text-slate-700">{insight.gapArea}</p>
                         </div>
                       </div>
                       <div className="flex gap-3">
                         <div className="mt-1"><Zap size={16} className="text-blue-500" /></div>
                         <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">AI Recommendation</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">AI Suggestion</p>
                           <p className="text-sm font-medium text-slate-600 leading-relaxed">{insight.recommendation}</p>
                         </div>
                       </div>
@@ -226,8 +239,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
                  <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
                     <CheckCircle2 size={40} />
                  </div>
-                 <p className="font-black text-slate-800">Excellent! All team members are above threshold.</p>
-                 <p className="text-xs text-slate-400">Individual improvement alerts are only shown for performance below 75%.</p>
+                 <p className="font-black text-slate-800">Excellent balance across the team.</p>
               </div>
             )}
           </div>
@@ -236,8 +248,8 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
       ) : (
         <div className="bg-white p-20 rounded-[3rem] border border-dashed border-slate-300 text-center space-y-4">
            <Zap size={48} className="mx-auto text-slate-200" />
-           <p className="font-black text-slate-400 uppercase tracking-widest">No Intelligence Data Available</p>
-           <button onClick={runAnalysis} className="text-blue-600 font-black text-sm hover:underline">Click here to start analysis</button>
+           <p className="font-black text-slate-400 uppercase tracking-widest">No Efficiency Data Analyzed</p>
+           <button onClick={runAnalysis} className="text-blue-600 font-black text-sm hover:underline">Click here to start correlation analysis</button>
         </div>
       )}
     </div>

@@ -15,14 +15,22 @@ import {
   Sparkles,
   UserCheck,
   BarChart3,
-  GraduationCap
+  GraduationCap,
+  Clock,
+  Rocket,
+  ChevronDown
 } from 'lucide-react';
 import { TEAM_MEMBERS } from '../constants.tsx';
-import { EvaluationRecord, TestSubmission } from '../types.ts';
+import { EvaluationRecord, TestSubmission, ProjectSubCategory } from '../types.ts';
 
 interface EvaluationFormProps {
   onAdd: (record: EvaluationRecord) => void;
   submissions: TestSubmission[];
+  projectSLA: {
+    restaurant: { total: number; met: number };
+    massage: { total: number; met: number };
+    ai: { total: number; met: number };
+  };
 }
 
 const CONTEXT_RUBRICS = {
@@ -133,13 +141,17 @@ const CONTEXT_RUBRICS = {
   ]
 };
 
-const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, submissions }) => {
+const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, submissions, projectSLA }) => {
   const [formData, setFormData] = useState({
     staffId: TEAM_MEMBERS[0].id,
     type: 'Project' as 'Project' | 'Maintenance' | 'SideTask',
+    subCategory: 'Restaurant' as ProjectSubCategory,
     scoreA: 80,
     scoreB: 80,
     scoreC: 80,
+    slaMetCount: 0,
+    responseTimeMin: 5,
+    projectCount: 0,
     sideTaskPoints: 0,
     incomingCalls: 0,
     outgoingCalls: 0,
@@ -170,6 +182,9 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, submissions }) =
   }, [formData.staffId, submissions]);
 
   const activeRubrics = CONTEXT_RUBRICS[formData.type];
+  
+  // Get Global Total from the App's overview state
+  const globalTotal = projectSLA[formData.subCategory.toLowerCase() as keyof typeof projectSLA]?.total || 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,18 +196,29 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, submissions }) =
       return;
     }
 
+    const calculatedSlaPct = globalTotal > 0 ? Math.round((formData.slaMetCount / globalTotal) * 100) : 0;
+
     const record: EvaluationRecord = {
       id: Math.random().toString(36).substr(2, 9),
       staffId: formData.staffId,
       staffName: staff?.name || 'Unknown',
       date: new Date().toISOString().split('T')[0],
       type: formData.type,
+      projectSubCategory: formData.type === 'Project' ? formData.subCategory : undefined,
       communicationScore: formData.scoreA,
       speedScore: formData.scoreB,
       processCompliance: formData.scoreC,
       followUpScore: 80,
       clarityScore: formData.scoreA, 
       onboardingQuality: formData.scoreC,
+      
+      // Updated quantitative metrics
+      slaMetCount: formData.slaMetCount,
+      slaTotalBase: globalTotal,
+      individualSlaPct: calculatedSlaPct,
+      responseTimeMin: formData.responseTimeMin,
+      projectCount: formData.projectCount,
+      
       latestTestScore: integratedTestScore,
       daysToLive: formData.daysToLive,
       stepsCompleted: formData.scoreC >= 80 ? 10 : 7,
@@ -233,7 +259,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, submissions }) =
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           <div className="space-y-4">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
               <UserCheck size={14} /> Who are you evaluating?
@@ -265,12 +291,62 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, submissions }) =
               ))}
             </div>
           </div>
+          <div className="space-y-4">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+               Project Group (For SLA Base)
+            </label>
+            <select 
+              className="w-full bg-slate-50 border border-slate-200 rounded-[2rem] p-6 font-black text-slate-800 outline-none shadow-sm"
+              value={formData.subCategory}
+              onChange={(e) => setFormData(prev => ({ ...prev, subCategory: e.target.value as ProjectSubCategory }))}
+            >
+              <option value="Restaurant">Restaurant</option>
+              <option value="Massage">Massage</option>
+              <option value="AI Receptionist">AI Receptionist</option>
+            </select>
+          </div>
+        </div>
+
+        {/* UPDATED: SLA & Efficiency Metrics Section */}
+        <div className="bg-blue-900 rounded-[3rem] p-12 text-white shadow-2xl space-y-10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 pointer-events-none"><Rocket size={180}/></div>
+          <div className="flex items-center gap-4 border-b border-white/10 pb-6 relative z-10">
+            <div className="p-3 bg-blue-600 rounded-2xl"><Sparkles size={24} /></div>
+            <div>
+              <h4 className="font-black text-xl tracking-tight uppercase">SLA & Efficiency Metrics (Individual)</h4>
+              <p className="text-[10px] text-blue-300 font-bold uppercase">Base Total from Overview: {globalTotal}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+            <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-blue-300">Project SLA (Met Count)</span>
+                <ShieldCheck size={14} className="text-blue-300" />
+              </div>
+              <input type="number" min="0" className="bg-transparent text-4xl font-black text-white w-full outline-none" value={formData.slaMetCount || ''} onChange={(e) => setFormData({...formData, slaMetCount: parseInt(e.target.value) || 0})} placeholder="0" />
+              <p className="text-[9px] text-blue-400 font-black">Calculated: {globalTotal > 0 ? Math.round((formData.slaMetCount/globalTotal)*100) : 0}%</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-blue-300">Avg Response (min)</span>
+                <Clock size={14} className="text-blue-300" />
+              </div>
+              <input type="number" min="0" className="bg-transparent text-4xl font-black text-white w-full outline-none" value={formData.responseTimeMin || ''} onChange={(e) => setFormData({...formData, responseTimeMin: parseInt(e.target.value) || 0})} placeholder="5" />
+            </div>
+            <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-blue-300">Project count</span>
+                <Rocket size={14} className="text-blue-300" />
+              </div>
+              <input type="number" min="0" className="bg-transparent text-4xl font-black text-white w-full outline-none" value={formData.projectCount || ''} onChange={(e) => setFormData({...formData, projectCount: parseInt(e.target.value) || 0})} placeholder="0" />
+            </div>
+          </div>
         </div>
 
         <div className="bg-slate-900 rounded-[3rem] p-12 text-white shadow-2xl space-y-10">
           <div className="flex items-center gap-4 border-b border-white/10 pb-6">
             <div className="p-3 bg-indigo-600 rounded-2xl"><BarChart3 size={24} /></div>
-            <h4 className="font-black text-xl tracking-tight uppercase">Raw Workload Metrics</h4>
+            <h4 className="font-black text-xl tracking-tight uppercase">Raw Workload Metrics (Raw)</h4>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] space-y-4">

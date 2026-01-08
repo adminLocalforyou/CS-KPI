@@ -119,12 +119,16 @@ export interface EvaluationRecord {
   processCompliance: number; 
   onboardingQuality: number; 
   
-  // New field for automatic test score integration
-  latestTestScore?: number;
+  // Updated Quantitative Metrics
+  slaMetCount: number;
+  slaTotalBase: number; // Global total from overview
+  individualSlaPct: number;
+  responseTimeMin: number;
+  projectCount: number;
   
+  latestTestScore?: number;
   daysToLive: number;
   metSlaCount?: number;       
-  monthlyLiveCount?: number;  
   stepsCompleted: number;
   
   // Workload Metrics
@@ -139,4 +143,22 @@ export interface EvaluationRecord {
   sideTaskPoints: number;
   
   note: string;
+}
+
+export interface MonthlySnapshotRecord {
+  id: string;
+  type: 'monthly_snapshot';
+  date: string; // Creation date
+  monthYear: string; // e.g. "January 2024"
+  projectSLA: {
+    restaurant: { total: number; met: number };
+    massage: { total: number; met: number };
+    ai: { total: number; met: number };
+  };
+  otherKPIs: {
+    responseSpeed: { met: number; total: number };
+    csat: { met: number; total: number };
+  };
+  growthMetrics: GrowthMetrics;
+  overallScore: number;
 }

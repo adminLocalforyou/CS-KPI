@@ -7,10 +7,10 @@ import {
   CalendarDays, ListFilter, Trophy, LayoutGrid, Camera, HeartHandshake, 
   ExternalLink, Search, LineChart, UserPlus, Smile, Timer, Trash2, Building2,
   Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool, Database,
-  ListChecks
+  ListChecks, Send, UserRound, KeyRound
 } from 'lucide-react';
 import { TEAM_MEMBERS, INITIAL_EVALUATIONS } from './constants.tsx';
-import { EvaluationRecord, QARecord, TestSubmission, ProofRecord, PeerReviewRecord, GrowthMetrics, AssessmentRecord } from './types.ts';
+import { EvaluationRecord, QARecord, TestSubmission, ProofRecord, PeerReviewRecord, GrowthMetrics, AssessmentRecord, MonthlySnapshotRecord } from './types.ts';
 
 // Components
 import StatCard from './components/StatCard.tsx';
@@ -38,8 +38,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  // CRITICAL: Registered 'publicAnswers' in the activeTab literal types
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
@@ -55,6 +54,7 @@ const App: React.FC = () => {
   const [peerReviewRecords, setPeerReviewRecords] = useState<PeerReviewRecord[]>(() => loadState('cs_peer_review_records_v1', []));
   const [assessments, setAssessments] = useState<AssessmentRecord[]>(() => loadState('cs_assessments_v1', []));
   const [testSubmissions, setTestSubmissions] = useState<TestSubmission[]>(() => loadState('cs_submissions_v1', []));
+  const [monthlySnapshots, setMonthlySnapshots] = useState<MonthlySnapshotRecord[]>(() => loadState('cs_monthly_snapshots_v1', []));
   
   const [projectSLA, setProjectSLA] = useState(() => loadState('cs_project_sla_v2', { 
     restaurant: { total: 0, met: 0, target: 10 }, 
@@ -79,8 +79,6 @@ const App: React.FC = () => {
         const testId = hash.replace('#test=', '');
         setActiveTestId(testId);
         setActiveTab('takeTest');
-      } else if (hash === '') {
-        // No hash means home or whatever activeTab is
       }
     };
     handleHash();
@@ -98,10 +96,12 @@ const App: React.FC = () => {
     localStorage.setItem('cs_project_sla_v2', JSON.stringify(projectSLA));
     localStorage.setItem('cs_other_kpis_v1', JSON.stringify(otherKPIs));
     localStorage.setItem('cs_growth_metrics_v1', JSON.stringify(growthMetrics));
-  }, [evaluations, qaRecords, proofRecords, peerReviewRecords, assessments, testSubmissions, projectSLA, otherKPIs, growthMetrics]);
+    localStorage.setItem('cs_monthly_snapshots_v1', JSON.stringify(monthlySnapshots));
+  }, [evaluations, qaRecords, proofRecords, peerReviewRecords, assessments, testSubmissions, projectSLA, otherKPIs, growthMetrics, monthlySnapshots]);
 
   const handleTabSwitch = (tab: any) => {
-    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading', 'masterRecord'];
+    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading', 'masterRecord', 'team'];
+    
     if (managerTabs.includes(tab) && !isManager) {
       setPendingTab(tab);
       setShowPasscodeModal(true);
@@ -153,18 +153,24 @@ const App: React.FC = () => {
     const mPct = projectSLA.massage.total > 0 ? (projectSLA.massage.met / projectSLA.massage.total) * 100 : 0;
     const aPct = projectSLA.ai.total > 0 ? (projectSLA.ai.met / projectSLA.ai.total) * 100 : 0;
     const projectSlaTotal = (rPct + mPct + aPct) / 3;
-    const csatPct = otherKPIs.csat.total > 0 ? (otherKPIs.csat.met / otherKPIs.csat.total) * 100 : 0;
-    const speedPct = otherKPIs.responseSpeed.total > 0 ? (otherKPIs.responseSpeed.met / otherKPIs.responseSpeed.total) * 100 : 0;
+    
+    const csatAvg = otherKPIs.csat.met || 0;
+    const csatPct = (csatAvg / 5) * 100;
+    
+    const avgMinutes = otherKPIs.responseSpeed.met;
+    const speedScore = Math.max(0, Math.min(100, 100 - (avgMinutes - 5) * 10)); 
+
     const { retention, returnRate } = growthMetrics;
     const retentionPct = retention.startCount > 0 ? ((retention.endCount - retention.newCount) / retention.startCount) * 100 : 0;
     const returnRatePct = returnRate.totalCount > 0 ? (returnRate.returningCount / returnRate.totalCount) * 100 : 0;
     const teamAvg = teamPerformanceData.length > 0 ? teamPerformanceData.reduce((a, b) => a + b.score, 0) / teamPerformanceData.length : 0;
 
     return { 
-      overallPerf: Math.round((teamAvg + csatPct + speedPct + projectSlaTotal + retentionPct + returnRatePct) / 6), 
+      overallPerf: Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + returnRatePct) / 6), 
       overallSla: Math.round(projectSlaTotal), 
       csatPct: Math.round(csatPct), 
-      speedPct: Math.round(speedPct),
+      csatAvg: csatAvg,
+      avgSpeed: avgMinutes,
       retentionPct: Math.max(0, Math.round(retentionPct)),
       returnRatePct: Math.round(returnRatePct),
       rPct: Math.round(rPct), 
@@ -180,7 +186,8 @@ const App: React.FC = () => {
   
   const updateOtherKPI = (category: 'responseSpeed' | 'csat', field: 'met' | 'total', val: string) => {
     if (!isManager) return;
-    setOtherKPIs(prev => ({...prev, [category]: {...prev[category], [field]: Math.max(0, parseInt(val) || 0)}}));
+    const numVal = parseFloat(val) || 0;
+    setOtherKPIs(prev => ({...prev, [category]: {...prev[category], [field]: numVal}}));
   };
 
   const updateGrowthMetric = (category: 'retention' | 'returnRate', field: string, val: string) => {
@@ -192,6 +199,35 @@ const App: React.FC = () => {
         [field]: Math.max(0, parseInt(val) || 0)
       }
     }));
+  };
+
+  const handleSaveMonthlySnapshot = () => {
+    if (!isManager) return;
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const now = new Date();
+    const currentMonthYear = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+    
+    if (monthlySnapshots.find(s => s.monthYear === currentMonthYear)) {
+      if (!confirm(`คุณเคยบันทึกข้อมูลของเดือน ${currentMonthYear} ไปแล้ว ยืนยันที่จะบันทึกทับหรือไม่?`)) return;
+    }
+
+    const snapshot: MonthlySnapshotRecord = {
+      id: `snapshot-${Date.now()}`,
+      type: 'monthly_snapshot',
+      date: now.toISOString().split('T')[0],
+      monthYear: currentMonthYear,
+      projectSLA: JSON.parse(JSON.stringify(projectSLA)),
+      otherKPIs: JSON.parse(JSON.stringify(otherKPIs)),
+      growthMetrics: JSON.parse(JSON.stringify(growthMetrics)),
+      overallScore: globalStats.overallPerf
+    };
+
+    setMonthlySnapshots(prev => {
+      const filtered = prev.filter(s => s.monthYear !== currentMonthYear);
+      return [snapshot, ...filtered];
+    });
+
+    alert(`บันทึกข้อมูลสรุปของเดือน ${currentMonthYear} เข้าสู่ Master Record สำเร็จ!`);
   };
 
   const handleTakeTest = (testId: string) => {
@@ -211,8 +247,9 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
+      {/* Manager Passcode Modal */}
       {showPasscodeModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl max-w-sm w-full text-center space-y-8">
             <div className="w-20 h-20 bg-blue-600 text-white rounded-[2rem] flex items-center justify-center mx-auto shadow-xl"><Lock size={40} /></div>
             <div className="space-y-2">
@@ -244,7 +281,7 @@ const App: React.FC = () => {
             <div className="space-y-1">
               {isSidebarOpen && <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Public Space</p>}
               <SidebarItem id="dashboard" label="Overview" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('dashboard')} />
-              <SidebarItem id="team" label="Team Analysis" icon={TrendingUp} active={activeTab === 'team'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('team')} />
+              <SidebarItem id="publicStaffAnalysis" label="My Performance" icon={UserRound} active={activeTab === 'publicStaffAnalysis'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicStaffAnalysis')} />
               <SidebarItem id="staffHub" label="Public Hub" icon={Trophy} active={activeTab === 'staffHub'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('staffHub')} />
               <SidebarItem id="publicAnswers" label="Exam Review" icon={ListChecks} active={activeTab === 'publicAnswers'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicAnswers')} />
             </div>
@@ -254,6 +291,7 @@ const App: React.FC = () => {
               <SidebarItem id="masterRecord" label="Master Record" icon={Database} active={activeTab === 'masterRecord'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('masterRecord')} isLocked={!isManager} />
               <SidebarItem id="evaluate" label="Performance Log" icon={PlusCircle} active={activeTab === 'evaluate'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('evaluate')} isLocked={!isManager} />
               <SidebarItem id="qa" label="QA Checks" icon={FileSearch} active={activeTab === 'qa'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('qa')} isLocked={!isManager} />
+              <SidebarItem id="team" label="Team Analysis" icon={TrendingUp} active={activeTab === 'team'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('team')} isLocked={!isManager} />
               <SidebarItem id="assessment" label="Assessment Hub" icon={GraduationCap} active={activeTab === 'assessment'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('assessment')} isLocked={!isManager} />
               <SidebarItem id="grading" label="Grading Desk" icon={PenTool} active={activeTab === 'grading'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('grading')} isLocked={!isManager} />
               <SidebarItem id="individual" label="Staff Analytics" icon={User} active={activeTab === 'individual'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('individual')} isLocked={!isManager} />
@@ -299,9 +337,9 @@ const App: React.FC = () => {
                 <StatCard label="Overall Perf" value={`${globalStats.overallPerf}%`} sub="Global Index" icon={Activity} color="blue" />
                 <StatCard label="Retention" value={`${globalStats.retentionPct}%`} sub="Customer Loyalty" icon={UserMinus} color="purple" />
                 <StatCard label="Return Rate" value={`${globalStats.returnRatePct}%`} sub="Repeat Business" icon={RefreshCcw} color="orange" />
-                <StatCard label="CSAT Index" value={`${globalStats.csatPct}%`} sub="Satisfaction" icon={Smile} color="emerald" />
+                <StatCard label="CSAT Index" value={`${globalStats.csatAvg.toFixed(1)} / 5`} sub="Satisfaction" icon={Smile} color="emerald" />
                 <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="Building Met" icon={Zap} color="orange" />
-                <StatCard label="Response" value={`${globalStats.speedPct}%`} sub="SLA Timing" icon={Clock} color="purple" />
+                <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="Daily Speed" icon={Clock} color="purple" />
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
@@ -412,52 +450,92 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-slate-900 rounded-[4rem] p-12 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden h-fit">
-                  <div className="absolute bottom-0 right-0 p-12 opacity-5 pointer-events-none -mb-10 -mr-10"><Activity size={200} /></div>
-                  <div className="relative z-10 space-y-10">
-                    <h3 className="text-2xl font-black flex items-center gap-3"><ShieldCheck className="text-blue-400" /> Daily KPIs</h3>
-                    <div className="space-y-8">
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center"><span className="text-xs font-black uppercase text-slate-400">CSAT Score ({globalStats.csatPct}%)</span><Smile size={18} className="text-emerald-400" /></div>
-                        {isManager ? (
-                          <div className="grid grid-cols-2 gap-4">
-                            <input type="number" value={otherKPIs.csat.met || ''} onChange={(e) => updateOtherKPI('csat', 'met', e.target.value)} className="bg-white/5 border border-white/10 p-4 rounded-2xl font-black text-white text-center outline-none focus:bg-white/10" placeholder="Satisfied" />
-                            <input type="number" value={otherKPIs.csat.total || ''} onChange={(e) => updateOtherKPI('csat', 'total', e.target.value)} className="bg-white/5 border border-white/10 p-4 rounded-2xl font-black text-white text-center outline-none focus:bg-white/10" placeholder="Total" />
-                          </div>
-                        ) : (
-                          <div className="h-14 bg-white/5 rounded-2xl border border-white/10 flex items-center px-6 text-xs font-black text-slate-500 italic">Secure KPI Vault</div>
-                        )}
+                <div className="flex flex-col gap-6">
+                  <div className="bg-slate-900 rounded-[4rem] p-10 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden h-fit">
+                    <div className="absolute bottom-0 right-0 p-12 opacity-5 pointer-events-none -mb-10 -mr-10"><Activity size={200} /></div>
+                    <div className="relative z-10 space-y-10">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                        <h3 className="text-2xl font-black flex items-center gap-3"><ShieldCheck className="text-blue-400" /> Daily KPIs</h3>
+                        <div className="p-2 bg-blue-600/20 rounded-xl text-blue-400"><Clock size={16} /></div>
                       </div>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center"><span className="text-xs font-black uppercase text-slate-400">Response Speed ({globalStats.speedPct}%)</span><Timer size={18} className="text-purple-400" /></div>
-                        {isManager ? (
-                          <div className="grid grid-cols-2 gap-4">
-                            <input type="number" value={otherKPIs.responseSpeed.met || ''} onChange={(e) => updateOtherKPI('responseSpeed', 'met', e.target.value)} className="bg-white/5 border border-white/10 p-4 rounded-2xl font-black text-white text-center outline-none focus:bg-white/10" placeholder="On Time" />
-                            <input type="number" value={otherKPIs.responseSpeed.total || ''} onChange={(e) => updateOtherKPI('responseSpeed', 'total', e.target.value)} className="bg-white/5 border border-white/10 p-4 rounded-2xl font-black text-white text-center outline-none focus:bg-white/10" placeholder="Total" />
+                      <div className="space-y-8">
+                        <div className="space-y-6">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-black uppercase text-slate-400">CSAT Average Rating ({globalStats.csatAvg.toFixed(1)}/5)</span>
+                              <Smile size={18} className="text-emerald-400" />
+                            </div>
+                            {isManager ? (
+                              <input 
+                                type="number" 
+                                step="0.1" 
+                                min="0" 
+                                max="5" 
+                                value={otherKPIs.csat.met || ''} 
+                                onChange={(e) => updateOtherKPI('csat', 'met', e.target.value)} 
+                                className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-black text-white text-center text-xl outline-none focus:bg-white/10 transition-all" 
+                                placeholder="0.0" 
+                              />
+                            ) : (
+                              <div className="h-14 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center text-sm font-black text-slate-500">Locked</div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="h-14 bg-white/5 rounded-2xl border border-white/10 flex items-center px-6 text-xs font-black text-slate-500 italic">Secure KPI Vault</div>
-                        )}
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-black uppercase text-slate-400">Response Speed ({globalStats.avgSpeed} min)</span>
+                              <Timer size={18} className="text-purple-400" />
+                            </div>
+                            {isManager ? (
+                              <input 
+                                type="number" 
+                                value={otherKPIs.responseSpeed.met || ''} 
+                                onChange={(e) => updateOtherKPI('responseSpeed', 'met', e.target.value)} 
+                                className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-black text-white text-center text-xl outline-none focus:bg-white/10 transition-all" 
+                                placeholder="0" 
+                              />
+                            ) : (
+                              <div className="h-14 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center text-sm font-black text-slate-500">Locked</div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  {isManager && (
+                    <button 
+                      onClick={handleSaveMonthlySnapshot}
+                      className="w-full bg-slate-900 hover:bg-black text-white px-8 py-6 rounded-[2.5rem] font-black text-sm shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 border-b-4 border-slate-700"
+                    >
+                      <Send size={18} /> Record Monthly Report
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {activeTab === 'evaluate' && <EvaluationForm submissions={testSubmissions} onAdd={(e) => { setEvaluations([...evaluations, e]); setActiveTab('dashboard'); }} />}
+          {activeTab === 'evaluate' && <EvaluationForm projectSLA={projectSLA} submissions={testSubmissions} onAdd={(e) => { setEvaluations([...evaluations, e]); setActiveTab('dashboard'); }} />}
           {activeTab === 'qa' && <QAChecklist onSave={(r) => { setQaRecords([...qaRecords, r]); setActiveTab('dashboard'); }} />}
           {activeTab === 'assessment' && <AssessmentCenter assessments={assessments} onSave={(a) => setAssessments([a, ...assessments])} onTakeTest={handleTakeTest} onDelete={(id) => setAssessments(assessments.filter(a => a.id !== id))} />}
           {activeTab === 'grading' && <GradingDesk submissions={testSubmissions} assessments={assessments} onUpdate={updateSubmission} />}
           {activeTab === 'takeTest' && <TakeTest test={assessments.find(a => a.id === activeTestId)} submissions={testSubmissions} onSubmit={(s) => { updateSubmission(s); setActiveTab('dashboard'); window.location.hash = ''; }} />}
           {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([p, ...proofRecords])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
           {activeTab === 'peerReview' && <PeerReviewCollector onReceiveReview={(r) => setPeerReviewRecords([r, ...peerReviewRecords])} />}
-          {activeTab === 'individual' && <IndividualDeepDive staffId={selectedStaffId} evaluations={evaluations} proofs={proofRecords} peerReviews={peerReviewRecords} onStaffChange={setSelectedStaffId} />}
+          {(activeTab === 'individual' || activeTab === 'publicStaffAnalysis') && (
+            <IndividualDeepDive 
+              staffId={selectedStaffId} 
+              evaluations={evaluations} 
+              proofs={proofRecords} 
+              peerReviews={peerReviewRecords} 
+              submissions={testSubmissions}
+              onStaffChange={setSelectedStaffId}
+              mode={activeTab === 'publicStaffAnalysis' ? 'public' : 'manager'}
+            />
+          )}
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           {activeTab === 'staffHub' && <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} testSubmissions={testSubmissions} />}
-          {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} />}
-          {/* CRITICAL: Ensuring the rendering for publicAnswers is mapped to the component */}
+          {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} monthlySnapshots={monthlySnapshots} />}
           {activeTab === 'publicAnswers' && <PublicAnswers assessments={assessments} submissions={testSubmissions} />}
         </div>
       </main>

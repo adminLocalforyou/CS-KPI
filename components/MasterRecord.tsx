@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   Database, 
@@ -29,9 +30,20 @@ import {
   Info,
   ExternalLink,
   Download,
-  GraduationCap
+  GraduationCap,
+  Sparkles,
+  Zap,
+  Store,
+  Stethoscope,
+  Bot,
+  UserMinus,
+  RefreshCcw,
+  Smile,
+  Timer,
+  // Fix: Add missing LayoutDashboard icon import
+  LayoutDashboard
 } from 'lucide-react';
-import { EvaluationRecord, QARecord, TestSubmission, AssessmentRecord } from '../types.ts';
+import { EvaluationRecord, QARecord, TestSubmission, AssessmentRecord, MonthlySnapshotRecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
 
 interface MasterRecordProps {
@@ -39,14 +51,15 @@ interface MasterRecordProps {
   qaRecords: QARecord[];
   submissions: TestSubmission[];
   assessments: AssessmentRecord[];
+  monthlySnapshots: MonthlySnapshotRecord[];
 }
 
-type RecordType = 'performance' | 'qa' | 'exam';
+type RecordType = 'performance' | 'qa' | 'exam' | 'monthly_snapshot';
 
 interface GenericRecord {
   id: string;
   type: RecordType;
-  staffName: string;
+  staffName: string; // "Team" for snapshots
   date: string;
   title: string;
   score: number;
@@ -54,7 +67,7 @@ interface GenericRecord {
   rawData: any;
 }
 
-const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, submissions, assessments }) => {
+const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, submissions, assessments, monthlySnapshots }) => {
   const [filterType, setFilterType] = useState<'all' | RecordType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
@@ -96,11 +109,21 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
         score: Math.round(((s.autoScore + s.manualScore) / s.totalPossiblePoints) * 100),
         detail: s.managerFeedback || 'Final grade finalized',
         rawData: s
+      })),
+      ...monthlySnapshots.map(s => ({
+        id: s.id,
+        type: 'monthly_snapshot' as const,
+        staffName: 'Team Global',
+        date: s.date,
+        title: `Dashboard Snapshot: ${s.monthYear}`,
+        score: s.overallScore,
+        detail: `KPIs & SLA finalized for ${s.monthYear}`,
+        rawData: s
       }))
     ];
 
     return records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [evaluations, qaRecords, submissions]);
+  }, [evaluations, qaRecords, submissions, monthlySnapshots]);
 
   const filteredRecords = useMemo(() => {
     return allRecords.filter(r => {
@@ -115,11 +138,84 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
   const typeStyles = {
     performance: { icon: PlusCircle, color: 'indigo', label: 'Perf Log' },
     qa: { icon: FileSearch, color: 'emerald', label: 'QA Audit' },
-    exam: { icon: Award, color: 'blue', label: 'Exam Result' }
+    exam: { icon: Award, color: 'blue', label: 'Exam Result' },
+    monthly_snapshot: { icon: LayoutDashboard, color: 'amber', label: 'Dashboard Snapshot' }
   };
 
   const renderDetailContent = () => {
     if (!viewingRecord) return null;
+
+    if (viewingRecord.type === 'monthly_snapshot') {
+      const s = viewingRecord.rawData as MonthlySnapshotRecord;
+      const rPct = s.projectSLA.restaurant.total > 0 ? Math.round((s.projectSLA.restaurant.met / s.projectSLA.restaurant.total) * 100) : 0;
+      const mPct = s.projectSLA.massage.total > 0 ? Math.round((s.projectSLA.massage.met / s.projectSLA.massage.total) * 100) : 0;
+      const aPct = s.projectSLA.ai.total > 0 ? Math.round((s.projectSLA.ai.met / s.projectSLA.ai.total) * 100) : 0;
+      const csatPct = s.otherKPIs.csat.total > 0 ? Math.round((s.otherKPIs.csat.met / s.otherKPIs.csat.total) * 100) : 0;
+      const retPct = s.growthMetrics.retention.startCount > 0 ? Math.round(((s.growthMetrics.retention.endCount - s.growthMetrics.retention.newCount) / s.growthMetrics.retention.startCount) * 100) : 0;
+      const revPct = s.growthMetrics.returnRate.totalCount > 0 ? Math.round((s.growthMetrics.returnRate.returningCount / s.growthMetrics.returnRate.totalCount) * 100) : 0;
+
+      return (
+        <div className="space-y-12">
+          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white flex items-center justify-between shadow-xl">
+             <div className="flex items-center gap-4">
+                <div className="p-3 bg-amber-500 rounded-2xl"><Zap size={24} /></div>
+                <h4 className="text-xl font-black">Monthly Overview: {s.monthYear}</h4>
+             </div>
+             <div className="text-4xl font-black text-amber-400">{s.overallScore}%</div>
+          </div>
+
+          <div className="space-y-6">
+            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Store size={14}/> Project SLA Finalized</h5>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-2">
+                  <p className="text-[10px] font-black text-rose-400 uppercase">Restaurant</p>
+                  <p className="text-3xl font-black text-slate-800">{rPct}%</p>
+                  <p className="text-[10px] font-bold text-slate-400">Met: {s.projectSLA.restaurant.met} / {s.projectSLA.restaurant.total}</p>
+               </div>
+               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-2">
+                  <p className="text-[10px] font-black text-emerald-400 uppercase">Massage</p>
+                  <p className="text-3xl font-black text-slate-800">{mPct}%</p>
+                  <p className="text-[10px] font-bold text-slate-400">Met: {s.projectSLA.massage.met} / {s.projectSLA.massage.total}</p>
+               </div>
+               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-2">
+                  <p className="text-[10px] font-black text-blue-400 uppercase">AI Receptionist</p>
+                  <p className="text-3xl font-black text-slate-800">{aPct}%</p>
+                  <p className="text-[10px] font-bold text-slate-400">Met: {s.projectSLA.ai.met} / {s.projectSLA.ai.total}</p>
+               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+             <div className="space-y-6">
+               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Timer size={14}/> Daily KPIs</h5>
+               <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 space-y-6">
+                  <div className="flex justify-between items-center">
+                    <span className="font-black text-slate-800 flex items-center gap-2"><Smile size={18} className="text-emerald-500" /> CSAT Index</span>
+                    <span className="text-2xl font-black text-emerald-600">{csatPct}%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-black text-slate-800 flex items-center gap-2"><Timer size={18} className="text-purple-500" /> Avg Response</span>
+                    <span className="text-2xl font-black text-purple-600">{s.otherKPIs.responseSpeed.met} min</span>
+                  </div>
+               </div>
+             </div>
+             <div className="space-y-6">
+               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><TrendingUp size={14}/> Customer Growth</h5>
+               <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 space-y-6">
+                  <div className="flex justify-between items-center">
+                    <span className="font-black text-slate-800 flex items-center gap-2"><UserMinus size={18} className="text-indigo-500" /> Retention</span>
+                    <span className="text-2xl font-black text-indigo-600">{retPct}%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-black text-slate-800 flex items-center gap-2"><RefreshCcw size={18} className="text-orange-500" /> Return Rate</span>
+                    <span className="text-2xl font-black text-orange-600">{revPct}%</span>
+                  </div>
+               </div>
+             </div>
+          </div>
+        </div>
+      );
+    }
 
     if (viewingRecord.type === 'exam') {
       const submission = viewingRecord.rawData as TestSubmission;
@@ -397,7 +493,7 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
               <p className="text-slate-400 text-lg mt-1 font-medium italic">Consolidated history of all performance audits, QA checks, and exams</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-4 gap-6">
             <div className="bg-white/5 border border-white/10 p-4 rounded-2xl text-center">
               <p className="text-[10px] font-black text-slate-500 uppercase">Perf Logs</p>
               <p className="text-2xl font-black">{evaluations.length}</p>
@@ -409,6 +505,10 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
             <div className="bg-white/5 border border-white/10 p-4 rounded-2xl text-center">
               <p className="text-[10px] font-black text-slate-500 uppercase">Exams</p>
               <p className="text-2xl font-black">{submissions.filter(s => s.isGraded).length}</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl text-center">
+              <p className="text-[10px] font-black text-slate-500 uppercase">Reports</p>
+              <p className="text-2xl font-black">{monthlySnapshots.length}</p>
             </div>
           </div>
         </div>
@@ -433,10 +533,11 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
             onChange={(e) => setSelectedStaff(e.target.value)}
           >
             <option value="all">All Staff</option>
+            <option value="Team Global">Team Global</option>
             {TEAM_MEMBERS.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
           </select>
           <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-200 overflow-x-auto whitespace-nowrap">
-            {(['all', 'performance', 'qa', 'exam'] as const).map(type => (
+            {(['all', 'performance', 'qa', 'exam', 'monthly_snapshot'] as const).map(type => (
               <button
                 key={type}
                 onClick={() => setFilterType(type)}
@@ -444,7 +545,7 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
                   filterType === type ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400'
                 }`}
               >
-                {type}
+                {type === 'monthly_snapshot' ? 'Reports' : type}
               </button>
             ))}
           </div>
@@ -469,7 +570,7 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
               >
                 <div className="flex items-center gap-6">
                   <div className={`p-5 rounded-2xl bg-${style.color}-50 text-${style.color}-600 group-hover:bg-${style.color}-600 group-hover:text-white transition-all`}>
-                    <style.icon size={28} />
+                    {React.createElement(style.icon, { size: 28 })}
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-3">
@@ -498,7 +599,9 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
 
                 <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Audit Score</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                       {r.type === 'monthly_snapshot' ? 'Overall Score' : 'Audit Score'}
+                    </p>
                     <div className="flex items-center gap-3">
                        <span className={`text-3xl font-black ${r.score >= 85 ? 'text-emerald-600' : r.score >= 70 ? 'text-blue-600' : 'text-rose-600'}`}>
                          {r.score}%
@@ -527,7 +630,7 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
             <div className="space-y-4">
                <p className="text-sm text-slate-400 font-medium leading-relaxed">
                  Master Record keeps 100% of historical data since the first submission. 
-                 This data is used to calculate the Global Performance Index and Individual Growth Curves.
+                 Dashboard snapshots represent the finalized monthly state of all primary KPIs.
                </p>
                <div className="flex items-center gap-4 text-xs font-black uppercase text-indigo-400">
                   <div className="flex items-center gap-1"><Clock size={12}/> Lifetime logs active</div>
