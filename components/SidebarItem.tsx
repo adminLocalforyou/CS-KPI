@@ -23,7 +23,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ label, icon: Icon, active, co
     >
       <div className="flex items-center gap-3">
         <Icon size={20} className={active ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
-        {!collapsed && <span className="font-semibold text-sm">{label}</span>}
+        {!collapsed && <span className="font-bold text-sm tracking-tight">{label}</span>}
       </div>
       {!collapsed && isLocked && !active && (
         <Lock size={12} className="text-slate-600 group-hover:text-slate-400" />
