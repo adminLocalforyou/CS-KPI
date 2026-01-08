@@ -140,56 +140,55 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
 
   return (
     <div className="space-y-10 mt-12">
-      <div className="bg-slate-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none rotate-12"><BrainCircuit size={200} /></div>
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
-          <div className="flex items-center gap-6">
-            <div className="p-5 bg-indigo-600 rounded-[2rem] shadow-lg shadow-indigo-500/30">
-              {loading ? <Loader2 size={40} className="animate-spin text-white" /> : <Sparkles size={40} className="text-white" />}
-            </div>
-            <div>
-              <h2 className="text-4xl font-black tracking-tight">AI Team Intelligence</h2>
-              <p className="text-slate-400 text-lg mt-1 font-medium italic">Analyzing Efficiency, SLA Accuracy, and Project Volume</p>
-            </div>
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-100">
+        <div className="flex items-center gap-6">
+          <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl">
+            {loading ? <Loader2 size={32} className="animate-spin" /> : <Sparkles size={32} />}
           </div>
-          <button 
-            onClick={runAnalysis}
-            disabled={loading || !hasEnoughData}
-            className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black transition-all ${
-              loading || !hasEnoughData 
-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-              : 'bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border border-white/10'
-            }`}
-          >
-            {loading ? <Loader2 size={20} className="animate-spin" /> : <RefreshCcw size={20} />}
-            {loading ? "Analyzing Data..." : "Refresh Intelligence"}
-          </button>
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+              AI Team Intelligence <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] rounded-full uppercase">Gemini Powered</span>
+            </h2>
+            <p className="text-slate-400 text-sm mt-0.5 font-medium italic">Efficiency & SLA Performance Insights</p>
+          </div>
         </div>
+        <button 
+          onClick={runAnalysis}
+          disabled={loading || !hasEnoughData}
+          className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+            loading || !hasEnoughData 
+            ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+            : 'bg-slate-900 text-white hover:bg-black shadow-lg shadow-black/10'
+          }`}
+        >
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+          {loading ? "Analyzing..." : "Refresh Intelligence"}
+        </button>
       </div>
 
       {!hasEnoughData ? (
-        <div className="bg-white p-20 rounded-[3rem] border border-dashed border-slate-300 text-center space-y-6">
-           <div className="w-20 h-20 bg-slate-50 text-slate-200 rounded-full flex items-center justify-center mx-auto">
-              <ShieldAlert size={48} />
+        <div className="bg-white p-12 rounded-[3rem] border border-dashed border-slate-300 text-center space-y-4">
+           <div className="w-16 h-16 bg-slate-50 text-slate-200 rounded-full flex items-center justify-center mx-auto">
+              <ShieldAlert size={32} />
            </div>
-           <div className="space-y-2">
-              <h3 className="text-xl font-black text-slate-800">NO EVALUATION DATA FOUND</h3>
-              <p className="text-slate-400 font-bold max-w-sm mx-auto">กรุณาบันทึก "Performance Log" หรือผลการตรวจ "QA Checks" ของพนักงานก่อน เพื่อให้ AI วิเคราะห์ประสิทธิภาพได้</p>
+           <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-800 uppercase">Awaiting Performance Data</h3>
+              <p className="text-slate-400 font-bold text-xs max-w-xs mx-auto">กรุณาบันทึก "Performance Log" หรือผล "QA Checks" เพื่อให้ AI เริ่มการวิเคราะห์ทีม</p>
            </div>
         </div>
       ) : error ? (
-        <div className="bg-rose-50 p-12 rounded-[3rem] border border-rose-100 flex items-center gap-8">
-           <AlertCircle size={48} className="text-rose-500 flex-shrink-0" />
-           <div className="space-y-2">
-              <h4 className="text-xl font-black text-rose-900">Analysis Halted</h4>
-              <p className="text-rose-700 font-bold">{error}</p>
-              <button onClick={runAnalysis} className="mt-4 px-6 py-2 bg-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-600 transition-all">Try Again</button>
+        <div className="bg-rose-50 p-8 rounded-[2.5rem] border border-rose-100 flex items-center gap-6">
+           <AlertCircle size={32} className="text-rose-500 flex-shrink-0" />
+           <div className="space-y-1">
+              <h4 className="text-lg font-black text-rose-900">Analysis Halted</h4>
+              <p className="text-rose-700 font-bold text-sm">{error}</p>
+              <button onClick={runAnalysis} className="mt-2 px-4 py-2 bg-rose-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all">Retry Analysis</button>
            </div>
         </div>
       ) : loading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <Loader2 size={64} className="animate-spin text-indigo-600" />
-          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-sm">Gemini is correlating SLA vs Response Speed...</p>
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <Loader2 size={48} className="animate-spin text-indigo-600" />
+          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Gemini is correlating team SLA datasets...</p>
         </div>
       ) : analysis ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in fade-in duration-700">
@@ -225,7 +224,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
               <h4 className="text-lg font-black flex items-center gap-3">
                 <TrendingUp size={24} className="text-indigo-400" /> Efficiency Observation
               </h4>
-              <p className="text-indigo-100 font-bold italic leading-relaxed">
+              <p className="text-indigo-100 font-bold italic leading-relaxed text-sm">
                 "ข้อมูลพฤติกรรมการทำงานรายบุคคลชี้ให้เห็นว่าทีมส่วนใหญ่รักษามาตรฐาน SLA ได้ดี แต่อาจต้องเพิ่มความเร็วในการตอบสนองในหมวดหมู่ Maintenance"
               </p>
             </div>

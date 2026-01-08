@@ -29,7 +29,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.1.1-TEAM-FIX";
+const APP_VERSION = "4.1.5-UI-REFINEMENT";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -355,7 +355,7 @@ const App: React.FC = () => {
         <div className={activeTab === 'takeTest' ? '' : 'p-8 max-w-7xl mx-auto w-full pb-32'}>
           {activeTab === 'dashboard' && (
             <div className="space-y-12 animate-in fade-in duration-700">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <StatCard label="Overall Perf" value={`${globalStats.overallPerf}%`} sub="Global Index" icon={Activity} color="blue" />
                 <StatCard label="Retention" value={`${globalStats.retentionPct}%`} sub="Customer Loyalty" icon={UserMinus} color="purple" />
                 <StatCard label="Return Rate" value={`${globalStats.returnRatePct}%`} sub="Repeat Business" icon={RefreshCcw} color="orange" />
@@ -364,7 +364,7 @@ const App: React.FC = () => {
                 <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="Daily Speed" icon={Clock} color="purple" />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
                 <div className="lg:col-span-2 space-y-10">
                   <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm relative overflow-hidden">
                     <div className="flex justify-between items-start mb-10">
@@ -503,7 +503,7 @@ const App: React.FC = () => {
                           <p className="text-[9px] font-black text-slate-400 uppercase text-center border-t border-slate-100 pt-3">Calculated from Month Start/End (Read Only)</p>
                         )}
                       </div>
-                      <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 space-y-4">
+                      <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <RefreshCcw className="text-orange-500" size={24} />
@@ -529,88 +529,91 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* AI Team Intelligence (Integrated at the bottom of Dashboard too) */}
+                  {/* AI Team Intelligence (Integrated at the bottom of Dashboard) */}
                   <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />
+                </div>
 
-                  <div className="bg-indigo-600 p-12 rounded-[4rem] text-white shadow-xl relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 pointer-events-none group-hover:scale-110 transition-transform duration-500">
-                      <Archive size={160} />
+                <div className="space-y-8">
+                  <div className="bg-slate-900 rounded-[3.5rem] p-8 text-white shadow-2xl space-y-8">
+                    <div className="flex items-center gap-4 mb-2">
+                      <ShieldCheck className="text-blue-500" size={24} />
+                      <h3 className="text-xl font-black tracking-tight uppercase">Daily KPIs</h3>
                     </div>
-                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-                      <div className="space-y-2">
-                        <h3 className="text-3xl font-black tracking-tight">Finalize & Save Report</h3>
-                        <p className="text-indigo-100 font-bold text-sm">บันทึกตัวเลขคำนวณของเดือนนี้ (SLA & Daily KPIs) ลงใน Master Record ถาวร</p>
+                    <div className="space-y-8">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">CSAT Score ({globalStats.csatPct}%)</p>
+                          <Smile size={16} className="text-emerald-400" />
+                        </div>
+                        <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-28 transition-all ${isManager ? 'bg-white/10 border-blue-500/50' : 'bg-white/5 border-white/10'}`}>
+                          {isManager ? (
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Global CSAT Average (1-5)</label>
+                              <input 
+                                type="number" step="0.1" min="0" max="5"
+                                className="w-full bg-slate-800 text-2xl font-black text-emerald-400 outline-none p-1 rounded-lg border border-white/5"
+                                value={otherKPIs.csat.met}
+                                onChange={(e) => updateOtherKPI('csat', parseFloat(e.target.value) || 0)}
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-xl font-black text-emerald-400">{otherKPIs.csat.met} / 5</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response Speed</p>
+                          <Clock size={16} className="text-purple-400" />
+                        </div>
+                        <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-28 transition-all ${isManager ? 'bg-white/10 border-blue-500/50' : 'bg-white/5 border-white/10'}`}>
+                          {isManager ? (
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Global Avg Speed (Min)</label>
+                              <input 
+                                type="number" min="0"
+                                className="w-full bg-slate-800 text-2xl font-black text-purple-400 outline-none p-1 rounded-lg border border-white/5"
+                                value={otherKPIs.responseSpeed.met}
+                                onChange={(e) => updateOtherKPI('responseSpeed', parseInt(e.target.value) || 0)}
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-xl font-black text-purple-400">{globalStats.avgSpeed} min</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pt-6 border-t border-white/5 text-center">
+                      <p className={`text-[8px] font-black uppercase tracking-[0.2em] transition-all ${isManager ? 'text-blue-500' : 'text-slate-500 opacity-40'}`}>
+                        {isManager ? 'Dashboard Editing Enabled' : 'Restricted Manager Data'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Finalize & Save Report - Positioned below Daily KPIs */}
+                  <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12 pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                      <Archive size={100} />
+                    </div>
+                    <div className="relative z-10 space-y-6">
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-black tracking-tight">Finalize Report</h3>
+                        <p className="text-indigo-100 font-bold text-[10px]">บันทึก SLA & Daily KPIs ของเดือนนี้ลงใน Master Record ถาวร</p>
                       </div>
                       {isManager ? (
                         <button 
                           onClick={handleSaveSnapshot}
-                          className="bg-white text-indigo-600 px-10 py-5 rounded-[2.5rem] font-black uppercase tracking-widest text-sm shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
+                          className="w-full bg-white text-indigo-600 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
                         >
-                          <Save size={20} /> Save Monthly Snapshot
+                          <Save size={16} /> Save Monthly Snapshot
                         </button>
                       ) : (
-                        <div className="bg-indigo-700/50 px-6 py-4 rounded-3xl border border-indigo-400/30 flex items-center gap-3">
-                           <Lock size={18} />
-                           <span className="text-xs font-black uppercase tracking-widest">Manager Access Required</span>
+                        <div className="bg-indigo-700/50 px-4 py-3 rounded-xl border border-indigo-400/30 flex items-center justify-center gap-2">
+                           <Lock size={14} />
+                           <span className="text-[9px] font-black uppercase tracking-widest">Manager Locked</span>
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-900 rounded-[3.5rem] p-10 text-white shadow-2xl space-y-12">
-                  <div className="flex items-center gap-4 mb-4">
-                    <ShieldCheck className="text-blue-500" size={28} />
-                    <h3 className="text-2xl font-black tracking-tight uppercase">Daily KPIs</h3>
-                  </div>
-                  <div className="space-y-10">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center px-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">CSAT Score ({globalStats.csatPct}%)</p>
-                        <Smile size={18} className="text-emerald-400" />
-                      </div>
-                      <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-32 transition-all ${isManager ? 'bg-white/10 border-blue-500/50' : 'bg-white/5 border-white/10'}`}>
-                        {isManager ? (
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Global CSAT Average (1-5)</label>
-                            <input 
-                              type="number" step="0.1" min="0" max="5"
-                              className="w-full bg-slate-800 text-3xl font-black text-emerald-400 outline-none p-2 rounded-xl border border-white/5"
-                              value={otherKPIs.csat.met}
-                              onChange={(e) => updateOtherKPI('csat', parseFloat(e.target.value) || 0)}
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-xs font-black text-blue-400/60 uppercase italic text-center">Secure KPI Vault</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center px-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response Speed ({globalStats.avgSpeed} min)</p>
-                        <Clock size={18} className="text-purple-400" />
-                      </div>
-                      <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-32 transition-all ${isManager ? 'bg-white/10 border-blue-500/50' : 'bg-white/5 border-white/10'}`}>
-                        {isManager ? (
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Global Avg Response Time (Min)</label>
-                            <input 
-                              type="number" min="0"
-                              className="w-full bg-slate-800 text-3xl font-black text-purple-400 outline-none p-2 rounded-xl border border-white/5"
-                              value={otherKPIs.responseSpeed.met}
-                              onChange={(e) => updateOtherKPI('responseSpeed', parseInt(e.target.value) || 0)}
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-xs font-black text-blue-400/60 uppercase italic text-center">Secure KPI Vault</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-10 border-t border-white/5 text-center">
-                    <p className={`text-[9px] font-black uppercase tracking-[0.3em] transition-all ${isManager ? 'text-blue-500' : 'text-slate-500 opacity-40'}`}>
-                      {isManager ? 'Dashboard Editing Enabled' : 'Restricted Manager Data'}
-                    </p>
                   </div>
                 </div>
               </div>
