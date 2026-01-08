@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ClipboardCheck, 
   Save, 
@@ -14,13 +14,15 @@ import {
   Zap,
   Sparkles,
   UserCheck,
-  BarChart3
+  BarChart3,
+  GraduationCap
 } from 'lucide-react';
 import { TEAM_MEMBERS } from '../constants.tsx';
-import { EvaluationRecord } from '../types.ts';
+import { EvaluationRecord, TestSubmission } from '../types.ts';
 
 interface EvaluationFormProps {
   onAdd: (record: EvaluationRecord) => void;
+  submissions: TestSubmission[];
 }
 
 const CONTEXT_RUBRICS = {
@@ -131,7 +133,7 @@ const CONTEXT_RUBRICS = {
   ]
 };
 
-const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd }) => {
+const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, submissions }) => {
   const [formData, setFormData] = useState({
     staffId: TEAM_MEMBERS[0].id,
     type: 'Project' as 'Project' | 'Maintenance' | 'SideTask',
@@ -147,6 +149,25 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd }) => {
     caseRef: '',
     daysToLive: 0,
   });
+
+  const [integratedTestScore, setIntegratedTestScore] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    const staff = TEAM_MEMBERS.find(m => m.id === formData.staffId);
+    if (staff) {
+      const staffSubmissions = submissions
+        .filter(s => s.staffName === staff.name && s.isGraded)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      if (staffSubmissions.length > 0) {
+        const latest = staffSubmissions[0];
+        const scorePct = Math.round(((latest.autoScore + latest.manualScore) / latest.totalPossiblePoints) * 100);
+        setIntegratedTestScore(scorePct);
+      } else {
+        setIntegratedTestScore(undefined);
+      }
+    }
+  }, [formData.staffId, submissions]);
 
   const activeRubrics = CONTEXT_RUBRICS[formData.type];
 
@@ -172,6 +193,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd }) => {
       followUpScore: 80,
       clarityScore: formData.scoreA, 
       onboardingQuality: formData.scoreC,
+      latestTestScore: integratedTestScore,
       daysToLive: formData.daysToLive,
       stepsCompleted: formData.scoreC >= 80 ? 10 : 7,
       incomingCalls: formData.incomingCalls,
@@ -199,6 +221,15 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd }) => {
             <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Behavioral Anchored Rating Scales (BARS)</p>
           </div>
         </div>
+        {integratedTestScore !== undefined && (
+          <div className="flex items-center gap-4 bg-blue-50 px-6 py-4 rounded-3xl border border-blue-100 animate-in fade-in zoom-in duration-500">
+            <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg"><GraduationCap size={20} /></div>
+            <div>
+              <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Integrated Test Score</p>
+              <p className="text-2xl font-black text-blue-700">{integratedTestScore}%</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-16">

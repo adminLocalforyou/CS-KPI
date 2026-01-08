@@ -6,7 +6,8 @@ import {
   FileSearch, GraduationCap, Award, ChevronDown, Percent, ArrowLeft, FileCheck, 
   CalendarDays, ListFilter, Trophy, LayoutGrid, Camera, HeartHandshake, 
   ExternalLink, Search, LineChart, UserPlus, Smile, Timer, Trash2, Building2,
-  Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool, Database
+  Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool, Database,
+  ListChecks
 } from 'lucide-react';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -29,6 +30,7 @@ import AssessmentCenter from './components/AssessmentCenter.tsx';
 import TakeTest from './components/TakeTest.tsx';
 import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
+import PublicAnswers from './components/PublicAnswers.tsx';
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -40,7 +42,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
@@ -132,7 +134,11 @@ const App: React.FC = () => {
       const scores: number[] = [];
       const mEvals = evaluations.filter(e => e.staffId === member.id);
       if (mEvals.length > 0) {
-        scores.push(mEvals.reduce((a, b) => a + (b.communicationScore + b.speedScore + b.processCompliance) / 3, 0) / mEvals.length);
+        scores.push(mEvals.reduce((a, b) => {
+          const evalScore = (b.communicationScore + b.speedScore + b.processCompliance) / 3;
+          const finalScore = b.latestTestScore ? (evalScore + b.latestTestScore) / 2 : evalScore;
+          return a + finalScore;
+        }, 0) / mEvals.length);
       }
       const mQA = qaRecords.filter(r => r.staffId === member.id);
       if (mQA.length > 0) {
@@ -245,6 +251,7 @@ const App: React.FC = () => {
               <SidebarItem id="dashboard" label="Overview" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('dashboard')} />
               <SidebarItem id="team" label="Team Analysis" icon={TrendingUp} active={activeTab === 'team'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('team')} />
               <SidebarItem id="staffHub" label="Public Hub" icon={Trophy} active={activeTab === 'staffHub'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('staffHub')} />
+              <SidebarItem id="publicAnswers" label="Exam Review" icon={ListChecks} active={activeTab === 'publicAnswers'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicAnswers')} />
             </div>
             <div className="h-px bg-slate-800/50 mx-4"></div>
             <div className="space-y-1">
@@ -444,7 +451,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'evaluate' && <EvaluationForm onAdd={(e) => { setEvaluations([...evaluations, e]); setActiveTab('dashboard'); }} />}
+          {activeTab === 'evaluate' && <EvaluationForm submissions={testSubmissions} onAdd={(e) => { setEvaluations([...evaluations, e]); setActiveTab('dashboard'); }} />}
           {activeTab === 'qa' && <QAChecklist onSave={(r) => { setQaRecords([...qaRecords, r]); setActiveTab('dashboard'); }} />}
           {activeTab === 'assessment' && <AssessmentCenter assessments={assessments} onSave={(a) => setAssessments([a, ...assessments])} onTakeTest={handleTakeTest} onDelete={(id) => setAssessments(assessments.filter(a => a.id !== id))} />}
           {activeTab === 'grading' && <GradingDesk submissions={testSubmissions} assessments={assessments} onUpdate={updateSubmission} />}
@@ -454,7 +461,8 @@ const App: React.FC = () => {
           {activeTab === 'individual' && <IndividualDeepDive staffId={selectedStaffId} evaluations={evaluations} proofs={proofRecords} peerReviews={peerReviewRecords} onStaffChange={setSelectedStaffId} />}
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           {activeTab === 'staffHub' && <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} testSubmissions={testSubmissions} />}
-          {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} />}
+          {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} />}
+          {activeTab === 'publicAnswers' && <PublicAnswers assessments={assessments} submissions={testSubmissions} />}
         </div>
       </main>
     </div>

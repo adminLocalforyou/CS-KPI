@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
   Database, 
@@ -16,35 +15,68 @@ import {
   BarChart3,
   Clock,
   Trash2,
-  ShieldCheck
+  ShieldCheck,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  MessageSquare,
+  Activity,
+  PhoneIncoming,
+  PhoneOutgoing,
+  MessageCircle,
+  Target,
+  PenTool,
+  Info,
+  ExternalLink,
+  Download,
+  GraduationCap
 } from 'lucide-react';
-import { EvaluationRecord, QARecord, TestSubmission } from '../types.ts';
+import { EvaluationRecord, QARecord, TestSubmission, AssessmentRecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
 
 interface MasterRecordProps {
   evaluations: EvaluationRecord[];
   qaRecords: QARecord[];
   submissions: TestSubmission[];
+  assessments: AssessmentRecord[];
 }
 
 type RecordType = 'performance' | 'qa' | 'exam';
 
-const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, submissions }) => {
+interface GenericRecord {
+  id: string;
+  type: RecordType;
+  staffName: string;
+  date: string;
+  title: string;
+  score: number;
+  detail: string;
+  rawData: any;
+}
+
+const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, submissions, assessments }) => {
   const [filterType, setFilterType] = useState<'all' | RecordType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
+  const [viewingRecord, setViewingRecord] = useState<GenericRecord | null>(null);
 
   const allRecords = useMemo(() => {
-    const records = [
-      ...evaluations.map(e => ({ 
-        id: e.id, 
-        type: 'performance' as const, 
-        staffName: e.staffName, 
-        date: e.date, 
-        title: e.type, 
-        score: Math.round((e.communicationScore + e.speedScore + e.processCompliance) / 3),
-        detail: e.note || 'No additional notes provided'
-      })),
+    const records: GenericRecord[] = [
+      ...evaluations.map(e => {
+        const evalScore = (e.communicationScore + e.speedScore + e.processCompliance) / 3;
+        const finalScore = e.latestTestScore ? Math.round((evalScore + e.latestTestScore) / 2) : Math.round(evalScore);
+        
+        return { 
+          id: e.id, 
+          type: 'performance' as const, 
+          staffName: e.staffName, 
+          date: e.date, 
+          title: e.type, 
+          score: finalScore,
+          detail: e.note || 'No additional notes provided',
+          rawData: e
+        };
+      }),
       ...qaRecords.map(q => ({ 
         id: q.id, 
         type: 'qa' as const, 
@@ -52,7 +84,8 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
         date: q.date, 
         title: 'QA Audit', 
         score: q.overallPercentage,
-        detail: `Verified across ${q.sections.length} sections`
+        detail: `Verified across ${q.sections.length} sections`,
+        rawData: q
       })),
       ...submissions.filter(s => s.isGraded).map(s => ({ 
         id: s.id, 
@@ -61,7 +94,8 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
         date: s.date, 
         title: s.testTitle, 
         score: Math.round(((s.autoScore + s.manualScore) / s.totalPossiblePoints) * 100),
-        detail: s.managerFeedback || 'Final grade finalized'
+        detail: s.managerFeedback || 'Final grade finalized',
+        rawData: s
       }))
     ];
 
@@ -84,8 +118,274 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
     exam: { icon: Award, color: 'blue', label: 'Exam Result' }
   };
 
+  const renderDetailContent = () => {
+    if (!viewingRecord) return null;
+
+    if (viewingRecord.type === 'exam') {
+      const submission = viewingRecord.rawData as TestSubmission;
+      const assessment = assessments.find(a => a.id === submission.testId);
+      
+      return (
+        <div className="space-y-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Auto Score</p>
+                <p className="text-2xl font-black text-slate-800">{submission.autoScore}/{submission.totalPossiblePoints}</p>
+             </div>
+             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Manual Score</p>
+                <p className="text-2xl font-black text-slate-800">{submission.manualScore}</p>
+             </div>
+             <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 col-span-2">
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Overall Percentage</p>
+                <p className="text-3xl font-black text-blue-600">{viewingRecord.score}%</p>
+             </div>
+          </div>
+
+          <div className="space-y-6">
+            <h5 className="text-sm font-black text-slate-900 uppercase tracking-widest ml-1">Question History</h5>
+            {assessment?.questions.map((q, idx) => {
+              const userAnswer = submission.answers[q.id];
+              const isCorrect = q.type === 'choice' ? userAnswer === q.correctAnswer : true;
+              
+              return (
+                <div key={q.id} className="p-6 rounded-3xl bg-slate-50 border border-slate-100 space-y-4">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-black text-xs text-slate-400 border border-slate-100">{idx + 1}</span>
+                      <p className="font-bold text-slate-800">{q.question}</p>
+                    </div>
+                    {q.type === 'choice' ? (
+                      isCorrect ? <CheckCircle2 className="text-emerald-500" size={20} /> : <AlertCircle className="text-rose-500" size={20} />
+                    ) : (
+                      <PenTool className="text-amber-500" size={20} />
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase">Staff Answer</p>
+                      <div className={`text-sm font-bold p-3 rounded-xl ${isCorrect ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                        {userAnswer || '(No Answer Provided)'}
+                      </div>
+                    </div>
+                    {q.type === 'choice' && !isCorrect && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 uppercase">Correct Answer</p>
+                        <div className="text-sm font-bold p-3 rounded-xl bg-slate-900 text-white">
+                          {q.correctAnswer}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {submission.managerFeedback && (
+            <div className="p-8 bg-amber-50 rounded-[2rem] border border-amber-100 space-y-3">
+              <h5 className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
+                <MessageSquare size={14} /> Supervisor Feedback
+              </h5>
+              <p className="text-sm font-bold text-amber-900 leading-relaxed italic">"{submission.managerFeedback}"</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (viewingRecord.type === 'qa') {
+      const qa = viewingRecord.rawData as QARecord;
+      return (
+        <div className="space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {qa.sections.map((section, idx) => {
+              const actual = section.items.reduce((a, b) => a + b.score, 0);
+              const max = section.items.length * 5;
+              const pct = Math.round((actual / max) * 100);
+              return (
+                <div key={idx} className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Section {idx + 1}</p>
+                  <p className="text-2xl font-black text-slate-800">{pct}%</p>
+                  <div className="w-full h-1 bg-slate-200 rounded-full mt-2 overflow-hidden">
+                    <div className="h-full bg-emerald-500" style={{width: `${pct}%`}}></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="space-y-8">
+            {qa.sections.map((section, sIdx) => (
+              <div key={sIdx} className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h5 className="font-black text-slate-900 text-sm flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-lg bg-slate-900 text-white flex items-center justify-center text-[10px]">{sIdx + 1}</span>
+                    {section.title}
+                  </h5>
+                  <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">Score: {Math.round((section.items.reduce((a,b)=>a+b.score, 0) / (section.items.length * 5)) * 100)}%</span>
+                </div>
+                <div className="space-y-3 pl-9">
+                  {section.items.map((item, iIdx) => (
+                    <div key={iIdx} className="flex items-center justify-between text-sm p-4 bg-white border border-slate-50 rounded-2xl shadow-sm">
+                      <span className="font-medium text-slate-600">{item.label}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          {[1,2,3,4,5].map(star => (
+                            <div key={star} className={`w-2 h-2 rounded-full ${star <= item.score ? 'bg-blue-500' : 'bg-slate-100'}`}></div>
+                          ))}
+                        </div>
+                        <span className="font-black text-slate-900 min-w-[30px] text-right">{item.score}/5</span>
+                      </div>
+                    </div>
+                  ))}
+                  {(section.caseRef || section.comment) && (
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-2 mt-2">
+                      {section.caseRef && <div className="flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase"><ExternalLink size={12}/> Ticket REF: {section.caseRef}</div>}
+                      {section.comment && <div className="flex gap-2">
+                        <MessageSquare size={14} className="text-slate-300 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs font-bold text-slate-600 italic">"{section.comment}"</p>
+                      </div>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (viewingRecord.type === 'performance') {
+      const evalData = viewingRecord.rawData as EvaluationRecord;
+      return (
+        <div className="space-y-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex items-center gap-4">
+              <PhoneIncoming className="text-indigo-600" size={20} />
+              <div>
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Incoming</p>
+                <p className="text-2xl font-black text-slate-800">{evalData.incomingCalls}</p>
+              </div>
+            </div>
+            <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex items-center gap-4">
+              <PhoneOutgoing className="text-indigo-600" size={20} />
+              <div>
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Outgoing</p>
+                <p className="text-2xl font-black text-slate-800">{evalData.outgoingCalls}</p>
+              </div>
+            </div>
+            <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 flex items-center gap-4">
+              <MessageCircle className="text-emerald-600" size={20} />
+              <div>
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Chats</p>
+                <p className="text-2xl font-black text-slate-800">{evalData.totalChats}</p>
+              </div>
+            </div>
+            <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 flex items-center gap-4">
+              <FileText className="text-amber-600" size={20} />
+              <div>
+                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1">Tasks</p>
+                <p className="text-2xl font-black text-slate-800">{evalData.totalTasks}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <h5 className="text-sm font-black text-slate-900 uppercase tracking-widest ml-1">Rubric Scores & Integrated Exam</h5>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               {[
+                 { label: 'Communication', val: evalData.communicationScore },
+                 { label: 'Speed/SLA', val: evalData.speedScore },
+                 { label: 'Process', val: evalData.processCompliance },
+                 { label: 'Follow Up', val: evalData.followUpScore },
+                 { label: 'Clarity', val: evalData.clarityScore },
+                 { label: 'Onboarding', val: evalData.onboardingQuality }
+               ].map((rub, i) => (
+                 <div key={i} className="p-5 bg-white border border-slate-100 rounded-3xl shadow-sm space-y-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{rub.label}</p>
+                    <div className="flex items-center justify-between">
+                       <span className="text-2xl font-black text-slate-900">{rub.val}%</span>
+                       <div className="w-16 h-2 bg-slate-50 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-500" style={{width: `${rub.val}%`}}></div>
+                       </div>
+                    </div>
+                 </div>
+               ))}
+               {evalData.latestTestScore !== undefined && (
+                 <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl shadow-sm space-y-2">
+                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1"><GraduationCap size={12}/> Integrated Exam</p>
+                    <div className="flex items-center justify-between">
+                       <span className="text-2xl font-black text-blue-700">{evalData.latestTestScore}%</span>
+                       <div className="w-16 h-2 bg-blue-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500" style={{width: `${evalData.latestTestScore}%`}}></div>
+                       </div>
+                    </div>
+                 </div>
+               )}
+            </div>
+          </div>
+
+          {evalData.note && (
+            <div className="p-8 bg-slate-900 rounded-[2rem] text-white space-y-3">
+               <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                  <FileText size={14} /> Evaluation Notes
+               </h5>
+               <p className="text-sm font-medium leading-relaxed italic text-slate-300">"{evalData.note}"</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
+      {/* Detail Modal */}
+      {viewingRecord && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+           <div className="bg-white rounded-[3.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+              <div className="p-10 border-b border-slate-50 flex items-center justify-between">
+                 <div className="flex items-center gap-6">
+                    <div className={`p-4 rounded-2xl bg-${typeStyles[viewingRecord.type].color}-50 text-${typeStyles[viewingRecord.type].color}-600`}>
+                       {React.createElement(typeStyles[viewingRecord.type].icon, { size: 28 })}
+                    </div>
+                    <div>
+                       <div className="flex items-center gap-3">
+                          <h3 className="text-2xl font-black text-slate-900 tracking-tight">{viewingRecord.title}</h3>
+                          <span className="px-3 py-1 bg-slate-100 rounded-full text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                             {viewingRecord.date}
+                          </span>
+                       </div>
+                       <p className="text-sm font-bold text-slate-500 flex items-center gap-2 mt-1">
+                          <User size={14} className="text-slate-300" /> {viewingRecord.staffName}
+                       </p>
+                    </div>
+                 </div>
+                 <div className="flex items-center gap-3">
+                    <button className="flex items-center gap-2 px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+                      <Download size={16} /> Export
+                    </button>
+                    <button onClick={() => setViewingRecord(null)} className="p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all text-slate-400">
+                      <X size={24} />
+                    </button>
+                 </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+                 {renderDetailContent()}
+              </div>
+              <div className="p-8 bg-slate-50 border-t border-slate-100 text-center">
+                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center justify-center gap-2">
+                    <ShieldCheck size={14} /> Master Record System Verified Audit
+                 </p>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-slate-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none rotate-12"><Database size={240} /></div>
@@ -162,9 +462,13 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
           filteredRecords.map((r) => {
             const style = typeStyles[r.type];
             return (
-              <div key={r.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-8 group">
+              <div 
+                key={r.id} 
+                onClick={() => setViewingRecord(r)}
+                className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-8 group"
+              >
                 <div className="flex items-center gap-6">
-                  <div className={`p-5 rounded-2xl bg-${style.color}-50 text-${style.color}-600`}>
+                  <div className={`p-5 rounded-2xl bg-${style.color}-50 text-${style.color}-600 group-hover:bg-${style.color}-600 group-hover:text-white transition-all`}>
                     <style.icon size={28} />
                   </div>
                   <div className="space-y-1">
@@ -187,7 +491,7 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
                 </div>
 
                 <div className="flex-1 md:px-12">
-                   <p className="text-sm text-slate-500 italic font-medium leading-relaxed max-w-lg">
+                   <p className="text-sm text-slate-500 italic font-medium leading-relaxed max-w-lg truncate">
                      "{r.detail}"
                    </p>
                 </div>
@@ -204,9 +508,9 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
                        </div>
                     </div>
                   </div>
-                  <button className="p-3 text-slate-200 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+                  <div className="p-3 text-slate-200 group-hover:text-indigo-600 group-hover:bg-indigo-50 rounded-xl transition-all">
                     <ArrowRight size={20} />
-                  </button>
+                  </div>
                 </div>
               </div>
             );
@@ -215,7 +519,7 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-10 pb-20">
          <div className="bg-slate-900 rounded-[3rem] p-10 text-white space-y-6">
             <h3 className="text-xl font-black flex items-center gap-3">
                <TrendingUp className="text-indigo-400" /> Retention Trends

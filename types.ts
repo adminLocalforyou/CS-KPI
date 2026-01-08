@@ -119,6 +119,9 @@ export interface EvaluationRecord {
   processCompliance: number; 
   onboardingQuality: number; 
   
+  // New field for automatic test score integration
+  latestTestScore?: number;
+  
   daysToLive: number;
   metSlaCount?: number;       
   monthlyLiveCount?: number;  
