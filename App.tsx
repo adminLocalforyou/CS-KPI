@@ -6,7 +6,7 @@ import {
   FileSearch, GraduationCap, Award, ChevronDown, Percent, ArrowLeft, FileCheck, 
   CalendarDays, ListFilter, Trophy, LayoutGrid, Camera, HeartHandshake, 
   ExternalLink, Search, LineChart, UserPlus, Smile, Timer, Trash2, Building2,
-  Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool
+  Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool, Database
 } from 'lucide-react';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -28,6 +28,7 @@ import PeerReviewCollector from './components/PeerReviewCollector.tsx';
 import AssessmentCenter from './components/AssessmentCenter.tsx';
 import TakeTest from './components/TakeTest.tsx';
 import GradingDesk from './components/GradingDesk.tsx';
+import MasterRecord from './components/MasterRecord.tsx';
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -39,7 +40,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
@@ -72,6 +73,24 @@ const App: React.FC = () => {
     returnRate: { returningCount: 0, totalCount: 0 }
   }));
 
+  // Hash Routing Logic
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#test=')) {
+        const testId = hash.replace('#test=', '');
+        setActiveTestId(testId);
+        setActiveTab('takeTest');
+      } else if (hash === '') {
+        setActiveTab('dashboard');
+      }
+    };
+
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('cs_evaluations_v3', JSON.stringify(evaluations));
     localStorage.setItem('cs_qa_records_v1', JSON.stringify(qaRecords));
@@ -85,12 +104,13 @@ const App: React.FC = () => {
   }, [evaluations, qaRecords, proofRecords, peerReviewRecords, assessments, testSubmissions, projectSLA, otherKPIs, growthMetrics]);
 
   const handleTabSwitch = (tab: any) => {
-    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading'];
+    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading', 'masterRecord'];
     if (managerTabs.includes(tab) && !isManager) {
       setPendingTab(tab);
       setShowPasscodeModal(true);
     } else {
       setActiveTab(tab);
+      if (tab !== 'takeTest') window.location.hash = '';
     }
   };
 
@@ -175,7 +195,7 @@ const App: React.FC = () => {
 
   const handleTakeTest = (testId: string) => {
     setActiveTestId(testId);
-    setActiveTab('takeTest');
+    window.location.hash = `test=${testId}`;
   };
 
   const updateSubmission = (submission: TestSubmission) => {
@@ -196,7 +216,7 @@ const App: React.FC = () => {
             <div className="w-20 h-20 bg-blue-600 text-white rounded-[2rem] flex items-center justify-center mx-auto shadow-xl"><Lock size={40} /></div>
             <div className="space-y-2">
               <h3 className="text-2xl font-black text-slate-900">Manager Access</h3>
-              <p className="text-slate-400 font-bold text-sm">กรุณากรอกรหัส 1234 เพื่อเข้าสู่โหมดจัดการ</p>
+              <p className="text-slate-400 font-bold text-sm">กรุณากรอกรหัสผ่านเพื่อเข้าสู่โหมดจัดการ</p>
             </div>
             <input 
               autoFocus type="password" maxLength={4} value={passcodeInput}
@@ -213,41 +233,44 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 transition-all duration-300 ease-in-out flex flex-col z-50 shadow-2xl shadow-black/20`}>
-        <div className="p-6 flex items-center gap-4">
-          <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20"><Target className="text-white" size={24} /></div>
-          {isSidebarOpen && <h1 className="text-white font-black text-lg tracking-tight">CS Portal</h1>}
-        </div>
-        <nav className="flex-1 mt-6 px-3 space-y-6 overflow-y-auto custom-scrollbar">
-          <div className="space-y-1">
-            {isSidebarOpen && <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Public Space</p>}
-            <SidebarItem id="dashboard" label="Overview" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => setActiveTab('dashboard')} />
-            <SidebarItem id="team" label="Team Analysis" icon={TrendingUp} active={activeTab === 'team'} collapsed={!isSidebarOpen} onClick={() => setActiveTab('team')} />
-            <SidebarItem id="staffHub" label="Public Hub" icon={Trophy} active={activeTab === 'staffHub'} collapsed={!isSidebarOpen} onClick={() => setActiveTab('staffHub')} />
+      {activeTab !== 'takeTest' && (
+        <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 transition-all duration-300 ease-in-out flex flex-col z-50 shadow-2xl shadow-black/20`}>
+          <div className="p-6 flex items-center gap-4">
+            <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20"><Target className="text-white" size={24} /></div>
+            {isSidebarOpen && <h1 className="text-white font-black text-lg tracking-tight">CS Portal</h1>}
           </div>
-          <div className="h-px bg-slate-800/50 mx-4"></div>
-          <div className="space-y-1">
-            {isSidebarOpen && <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Manager Deck</p>}
-            <SidebarItem id="evaluate" label="Performance Log" icon={PlusCircle} active={activeTab === 'evaluate'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('evaluate')} isLocked={!isManager} />
-            <SidebarItem id="qa" label="QA Checks" icon={FileSearch} active={activeTab === 'qa'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('qa')} isLocked={!isManager} />
-            <SidebarItem id="assessment" label="Assessment Hub" icon={GraduationCap} active={activeTab === 'assessment'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('assessment')} isLocked={!isManager} />
-            <SidebarItem id="grading" label="Grading Desk" icon={PenTool} active={activeTab === 'grading'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('grading')} isLocked={!isManager} />
-            <SidebarItem id="individual" label="Staff Analytics" icon={User} active={activeTab === 'individual'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('individual')} isLocked={!isManager} />
-            <SidebarItem id="proof" label="Proof Vault" icon={Camera} active={activeTab === 'proof'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('proof')} isLocked={!isManager} />
-            <SidebarItem id="peerReview" label="Peer Review" icon={HeartHandshake} active={activeTab === 'peerReview'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('peerReview')} isLocked={!isManager} />
-          </div>
-        </nav>
-        <div className="p-4 border-t border-slate-800 space-y-2">
-          {isManager && isSidebarOpen && (
-            <button onClick={() => setIsManager(false)} className="w-full flex items-center gap-3 p-3 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest">
-              <LogOut size={16} /> Logout Manager
+          <nav className="flex-1 mt-6 px-3 space-y-6 overflow-y-auto custom-scrollbar">
+            <div className="space-y-1">
+              {isSidebarOpen && <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Public Space</p>}
+              <SidebarItem id="dashboard" label="Overview" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('dashboard')} />
+              <SidebarItem id="team" label="Team Analysis" icon={TrendingUp} active={activeTab === 'team'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('team')} />
+              <SidebarItem id="staffHub" label="Public Hub" icon={Trophy} active={activeTab === 'staffHub'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('staffHub')} />
+            </div>
+            <div className="h-px bg-slate-800/50 mx-4"></div>
+            <div className="space-y-1">
+              {isSidebarOpen && <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Manager Deck</p>}
+              <SidebarItem id="masterRecord" label="Master Record" icon={Database} active={activeTab === 'masterRecord'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('masterRecord')} isLocked={!isManager} />
+              <SidebarItem id="evaluate" label="Performance Log" icon={PlusCircle} active={activeTab === 'evaluate'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('evaluate')} isLocked={!isManager} />
+              <SidebarItem id="qa" label="QA Checks" icon={FileSearch} active={activeTab === 'qa'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('qa')} isLocked={!isManager} />
+              <SidebarItem id="assessment" label="Assessment Hub" icon={GraduationCap} active={activeTab === 'assessment'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('assessment')} isLocked={!isManager} />
+              <SidebarItem id="grading" label="Grading Desk" icon={PenTool} active={activeTab === 'grading'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('grading')} isLocked={!isManager} />
+              <SidebarItem id="individual" label="Staff Analytics" icon={User} active={activeTab === 'individual'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('individual')} isLocked={!isManager} />
+              <SidebarItem id="proof" label="Proof Vault" icon={Camera} active={activeTab === 'proof'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('proof')} isLocked={!isManager} />
+              <SidebarItem id="peerReview" label="Peer Review" icon={HeartHandshake} active={activeTab === 'peerReview'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('peerReview')} isLocked={!isManager} />
+            </div>
+          </nav>
+          <div className="p-4 border-t border-slate-800 space-y-2">
+            {isManager && isSidebarOpen && (
+              <button onClick={() => setIsManager(false)} className="w-full flex items-center gap-3 p-3 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest">
+                <LogOut size={16} /> Logout Manager
+              </button>
+            )}
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all">
+              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-          )}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all">
-            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-      </aside>
+          </div>
+        </aside>
+      )}
 
       <main className="flex-1 overflow-y-auto relative">
         {activeTab !== 'takeTest' && (
@@ -425,12 +448,13 @@ const App: React.FC = () => {
           {activeTab === 'qa' && <QAChecklist onSave={(r) => { setQaRecords([...qaRecords, r]); setActiveTab('dashboard'); }} />}
           {activeTab === 'assessment' && <AssessmentCenter assessments={assessments} onSave={(a) => setAssessments([a, ...assessments])} onTakeTest={handleTakeTest} onDelete={(id) => setAssessments(assessments.filter(a => a.id !== id))} />}
           {activeTab === 'grading' && <GradingDesk submissions={testSubmissions} assessments={assessments} onUpdate={updateSubmission} />}
-          {activeTab === 'takeTest' && <TakeTest test={assessments.find(a => a.id === activeTestId)} onSubmit={(s) => { updateSubmission(s); setActiveTab('dashboard'); }} />}
+          {activeTab === 'takeTest' && <TakeTest test={assessments.find(a => a.id === activeTestId)} submissions={testSubmissions} onSubmit={(s) => { updateSubmission(s); setActiveTab('dashboard'); window.location.hash = ''; }} />}
           {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([p, ...proofRecords])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
           {activeTab === 'peerReview' && <PeerReviewCollector onReceiveReview={(r) => setPeerReviewRecords([r, ...peerReviewRecords])} />}
           {activeTab === 'individual' && <IndividualDeepDive staffId={selectedStaffId} evaluations={evaluations} proofs={proofRecords} peerReviews={peerReviewRecords} onStaffChange={setSelectedStaffId} />}
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           {activeTab === 'staffHub' && <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} testSubmissions={testSubmissions} />}
+          {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} />}
         </div>
       </main>
     </div>

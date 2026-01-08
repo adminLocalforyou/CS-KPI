@@ -104,10 +104,14 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
   };
 
   const handleCopyLink = (id: string) => {
-    const fakeLink = `https://cs-portal.app/exam/${id}`;
-    navigator.clipboard.writeText(fakeLink);
+    // Generate actual URL with hash routing support for direct access
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
+    const examLink = `${baseUrl}#test=${id}`;
+    
+    navigator.clipboard.writeText(examLink);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+    alert(`คัดลอกลิ้งค์สำหรับพนักงานแล้ว: ${examLink}`);
   };
 
   if (isCreating) {

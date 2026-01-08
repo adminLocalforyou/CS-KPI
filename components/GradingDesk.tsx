@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   PenTool, 
@@ -34,7 +35,8 @@ const GradingDesk: React.FC<GradingDeskProps> = ({ submissions, assessments, onU
   const handleFinalize = () => {
     if (!selectedSubmission) return;
 
-    const manualScore = Object.values(gradingValues).reduce((a, b) => a + b, 0);
+    // Explicitly type the reducer parameters to avoid 'unknown' type errors
+    const manualScore = Object.values(gradingValues).reduce((a: number, b: number) => a + b, 0);
     const updated: TestSubmission = {
       ...selectedSubmission,
       manualScore,
