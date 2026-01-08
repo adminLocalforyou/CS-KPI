@@ -8,7 +8,7 @@ import {
   ExternalLink, Search, LineChart, UserPlus, Smile, Timer, Trash2, Building2,
   Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool, Database,
   ListChecks, Send, UserRound, KeyRound, SearchCode, ArrowLeftCircle, ArrowRight,
-  Archive
+  Archive, BrainCircuit
 } from 'lucide-react';
 import { TEAM_MEMBERS, INITIAL_EVALUATIONS } from './constants.tsx';
 import { EvaluationRecord, QARecord, TestSubmission, ProofRecord, PeerReviewRecord, GrowthMetrics, AssessmentRecord, MonthlySnapshotRecord } from './types.ts';
@@ -29,7 +29,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.1.0-INTELLIGENCE-DASH";
+const APP_VERSION = "4.1.1-TEAM-FIX";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -41,7 +41,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis' | 'team'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
@@ -104,7 +104,7 @@ const App: React.FC = () => {
   }, [evaluations, qaRecords, proofRecords, peerReviewRecords, assessments, testSubmissions, projectSLA, otherKPIs, growthMetrics, monthlySnapshots]);
 
   const handleTabSwitch = (tab: any) => {
-    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading', 'masterRecord'];
+    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading', 'masterRecord', 'team'];
     
     if (managerTabs.includes(tab) && !isManager) {
       setPendingTab(tab);
@@ -317,6 +317,7 @@ const App: React.FC = () => {
               <SidebarItem id="individual" label="Staff Analytics" icon={User} active={activeTab === 'individual'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('individual')} isLocked={!isManager} />
               <SidebarItem id="proof" label="Proof Vault" icon={Camera} active={activeTab === 'proof'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('proof')} isLocked={!isManager} />
               <SidebarItem id="peerReview" label="Peer Review" icon={HeartHandshake} active={activeTab === 'peerReview'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('peerReview')} isLocked={!isManager} />
+              <SidebarItem id="team" label="Team Intelligence" icon={BrainCircuit} active={activeTab === 'team'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('team')} isLocked={!isManager} />
             </div>
           </nav>
           <div className="p-4 border-t border-slate-800 space-y-2">
@@ -528,7 +529,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* AI Team Intelligence (Integrated at the bottom of Dashboard) */}
+                  {/* AI Team Intelligence (Integrated at the bottom of Dashboard too) */}
                   <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />
 
                   <div className="bg-indigo-600 p-12 rounded-[4rem] text-white shadow-xl relative overflow-hidden group">
@@ -623,6 +624,7 @@ const App: React.FC = () => {
           {activeTab === 'takeTest' && <TakeTest test={assessments.find(a => a.id === activeTestId)} submissions={testSubmissions} onSubmit={(s) => { setTestSubmissions([...testSubmissions, s]); setActiveTab('dashboard'); window.location.hash = ''; }} />}
           {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([p, ...proofRecords])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
           {activeTab === 'peerReview' && <PeerReviewCollector onReceiveReview={(r) => setPeerReviewRecords([r, ...peerReviewRecords])} />}
+          {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           
           {activeTab === 'publicStaffAnalysis' && !publicActiveStaffId && (
             <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
