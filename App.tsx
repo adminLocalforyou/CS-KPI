@@ -7,7 +7,7 @@ import {
   CalendarDays, ListFilter, Trophy, LayoutGrid, Camera, HeartHandshake, 
   ExternalLink, Search, LineChart, UserPlus, Smile, Timer, Trash2, Building2,
   Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool, Database,
-  ListChecks, Send, UserRound, KeyRound
+  ListChecks, Send, UserRound, KeyRound, SearchCode, ArrowLeftCircle, ArrowRight
 } from 'lucide-react';
 import { TEAM_MEMBERS, INITIAL_EVALUATIONS } from './constants.tsx';
 import { EvaluationRecord, QARecord, TestSubmission, ProofRecord, PeerReviewRecord, GrowthMetrics, AssessmentRecord, MonthlySnapshotRecord } from './types.ts';
@@ -46,6 +46,7 @@ const App: React.FC = () => {
   const [pendingTab, setPendingTab] = useState<any>(null);
 
   const [selectedStaffId, setSelectedStaffId] = useState<string>(TEAM_MEMBERS[0]?.id || '1');
+  const [publicActiveStaffId, setPublicActiveStaffId] = useState<string | null>(null);
   const [activeTestId, setActiveTestId] = useState<string | null>(null);
   
   const [evaluations, setEvaluations] = useState<EvaluationRecord[]>(() => loadState('cs_evaluations_v3', INITIAL_EVALUATIONS));
@@ -107,6 +108,7 @@ const App: React.FC = () => {
       setShowPasscodeModal(true);
     } else {
       setActiveTab(tab);
+      if (tab === 'publicStaffAnalysis') setPublicActiveStaffId(null);
       if (tab !== 'takeTest') window.location.hash = '';
     }
   };
@@ -522,17 +524,63 @@ const App: React.FC = () => {
           {activeTab === 'takeTest' && <TakeTest test={assessments.find(a => a.id === activeTestId)} submissions={testSubmissions} onSubmit={(s) => { updateSubmission(s); setActiveTab('dashboard'); window.location.hash = ''; }} />}
           {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([p, ...proofRecords])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
           {activeTab === 'peerReview' && <PeerReviewCollector onReceiveReview={(r) => setPeerReviewRecords([r, ...peerReviewRecords])} />}
-          {(activeTab === 'individual' || activeTab === 'publicStaffAnalysis') && (
-            <IndividualDeepDive 
-              staffId={selectedStaffId} 
-              evaluations={evaluations} 
-              proofs={proofRecords} 
-              peerReviews={peerReviewRecords} 
-              submissions={testSubmissions}
-              onStaffChange={setSelectedStaffId}
-              mode={activeTab === 'publicStaffAnalysis' ? 'public' : 'manager'}
-            />
+          
+          {activeTab === 'publicStaffAnalysis' && !publicActiveStaffId && (
+            <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm space-y-4">
+                <div className="flex items-center gap-6">
+                  <div className="p-5 bg-indigo-600 text-white rounded-[2rem] shadow-xl"><Users size={32} /></div>
+                  <div>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">Staff Performance Directory</h3>
+                    <p className="text-slate-400 font-bold text-sm">เลือกสมาชิกในทีมเพื่อดูข้อมูลประสิทธิภาพรายบุคคล</p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {TEAM_MEMBERS.map(member => (
+                  <button 
+                    key={member.id}
+                    onClick={() => setPublicActiveStaffId(member.id)}
+                    className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all flex flex-col items-center text-center space-y-6 group"
+                  >
+                    <div className="w-24 h-24 rounded-[2.5rem] bg-slate-900 text-white flex items-center justify-center text-3xl font-black group-hover:bg-blue-600 transition-colors">
+                      {member.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-black text-slate-900">{member.name}</h4>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{member.role}</p>
+                    </div>
+                    <div className="w-full pt-6 border-t border-slate-50 flex items-center justify-center gap-2 text-[10px] font-black text-blue-500 uppercase tracking-widest group-hover:text-blue-700">
+                      View Performance <ArrowRight size={14} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
+
+          {(activeTab === 'individual' || (activeTab === 'publicStaffAnalysis' && publicActiveStaffId)) && (
+            <div className="space-y-6">
+              {activeTab === 'publicStaffAnalysis' && (
+                <button 
+                  onClick={() => setPublicActiveStaffId(null)}
+                  className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-black text-[10px] uppercase tracking-widest transition-all mb-4"
+                >
+                  <ArrowLeftCircle size={16} /> Back to Staff Directory
+                </button>
+              )}
+              <IndividualDeepDive 
+                staffId={activeTab === 'publicStaffAnalysis' ? publicActiveStaffId! : selectedStaffId} 
+                evaluations={evaluations} 
+                proofs={proofRecords} 
+                peerReviews={peerReviewRecords} 
+                submissions={testSubmissions}
+                onStaffChange={setSelectedStaffId}
+                mode={activeTab === 'publicStaffAnalysis' ? 'public' : 'manager'}
+              />
+            </div>
+          )}
+
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           {activeTab === 'staffHub' && <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} testSubmissions={testSubmissions} />}
           {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} monthlySnapshots={monthlySnapshots} />}

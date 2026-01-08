@@ -89,9 +89,11 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
              <p className="text-slate-400 font-bold text-sm mt-2">Overall Performance Index: <span className="text-slate-800 font-black">{overallIndividualScore}%</span></p>
           </div>
         </div>
-        <select className="bg-slate-100 p-4 rounded-2xl font-black outline-none cursor-pointer hover:bg-slate-200 transition-colors" value={staffId} onChange={(e) => onStaffChange(e.target.value)}>
-          {TEAM_MEMBERS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
+        {mode === 'manager' && (
+          <select className="bg-slate-100 p-4 rounded-2xl font-black outline-none cursor-pointer hover:bg-slate-200 transition-colors" value={staffId} onChange={(e) => onStaffChange(e.target.value)}>
+            {TEAM_MEMBERS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        )}
       </div>
 
       {/* Quantitative Efficiency Section - Publicly Visible */}
