@@ -29,7 +29,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.0.9-EDITABLE-DASH";
+const APP_VERSION = "4.1.0-INTELLIGENCE-DASH";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -41,7 +41,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
@@ -104,7 +104,7 @@ const App: React.FC = () => {
   }, [evaluations, qaRecords, proofRecords, peerReviewRecords, assessments, testSubmissions, projectSLA, otherKPIs, growthMetrics, monthlySnapshots]);
 
   const handleTabSwitch = (tab: any) => {
-    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading', 'masterRecord', 'team'];
+    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading', 'masterRecord'];
     
     if (managerTabs.includes(tab) && !isManager) {
       setPendingTab(tab);
@@ -246,7 +246,6 @@ const App: React.FC = () => {
     };
   }, [projectSLA, otherKPIs, growthMetrics, teamPerformanceData, evaluations]);
 
-  // Handler for dashboard editing
   const updateProjectMetric = (project: keyof typeof projectSLA, field: 'total' | 'met', val: number) => {
     setProjectSLA(prev => ({
       ...prev,
@@ -257,7 +256,7 @@ const App: React.FC = () => {
   const updateOtherKPI = (kpi: keyof typeof otherKPIs, val: number) => {
     setOtherKPIs(prev => ({
       ...prev,
-      [kpi]: { total: 1, met: val } // Setting total to 1 to signify data exists
+      [kpi]: { total: 1, met: val }
     }));
   };
 
@@ -270,7 +269,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
-      {/* Manager Passcode Modal */}
       {showPasscodeModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl max-w-sm w-full text-center space-y-8">
@@ -314,7 +312,6 @@ const App: React.FC = () => {
               <SidebarItem id="masterRecord" label="Master Record" icon={Database} active={activeTab === 'masterRecord'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('masterRecord')} isLocked={!isManager} />
               <SidebarItem id="evaluate" label="Performance Log" icon={PlusCircle} active={activeTab === 'evaluate'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('evaluate')} isLocked={!isManager} />
               <SidebarItem id="qa" label="QA Checks" icon={FileSearch} active={activeTab === 'qa'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('qa')} isLocked={!isManager} />
-              <SidebarItem id="team" label="Team Analysis" icon={TrendingUp} active={activeTab === 'team'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('team')} isLocked={!isManager} />
               <SidebarItem id="assessment" label="Assessment Hub" icon={GraduationCap} active={activeTab === 'assessment'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('assessment')} isLocked={!isManager} />
               <SidebarItem id="grading" label="Grading Desk" icon={PenTool} active={activeTab === 'grading'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('grading')} isLocked={!isManager} />
               <SidebarItem id="individual" label="Staff Analytics" icon={User} active={activeTab === 'individual'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('individual')} isLocked={!isManager} />
@@ -388,7 +385,6 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Restaurant Card */}
                       <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
                         <div className="flex items-center gap-4">
                           <div className="p-4 bg-rose-50 text-rose-500 rounded-[2rem] shadow-sm"><Store size={24} /></div>
@@ -415,8 +411,6 @@ const App: React.FC = () => {
                           )}
                         </div>
                       </div>
-
-                      {/* Massage Card */}
                       <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
                         <div className="flex items-center gap-4">
                           <div className="p-4 bg-emerald-50 text-emerald-500 rounded-[2rem] shadow-sm"><Stethoscope size={24} /></div>
@@ -443,8 +437,6 @@ const App: React.FC = () => {
                           )}
                         </div>
                       </div>
-
-                      {/* AI Card */}
                       <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
                         <div className="flex items-center gap-4">
                           <div className="p-4 bg-blue-50 text-blue-500 rounded-[2rem] shadow-sm"><Bot size={24} /></div>
@@ -482,7 +474,6 @@ const App: React.FC = () => {
                         <p className="text-slate-400 font-bold text-sm">Retention and Repeat service analysis</p>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 space-y-4">
                         <div className="flex items-center justify-between">
@@ -537,6 +528,9 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* AI Team Intelligence (Integrated at the bottom of Dashboard) */}
+                  <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />
+
                   <div className="bg-indigo-600 p-12 rounded-[4rem] text-white shadow-xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 pointer-events-none group-hover:scale-110 transition-transform duration-500">
                       <Archive size={160} />
@@ -568,9 +562,7 @@ const App: React.FC = () => {
                     <ShieldCheck className="text-blue-500" size={28} />
                     <h3 className="text-2xl font-black tracking-tight uppercase">Daily KPIs</h3>
                   </div>
-
                   <div className="space-y-10">
-                    {/* CSAT Row */}
                     <div className="space-y-4">
                       <div className="flex justify-between items-center px-2">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">CSAT Score ({globalStats.csatPct}%)</p>
@@ -592,8 +584,6 @@ const App: React.FC = () => {
                         )}
                       </div>
                     </div>
-
-                    {/* Response Speed Row */}
                     <div className="space-y-4">
                       <div className="flex justify-between items-center px-2">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response Speed ({globalStats.avgSpeed} min)</p>
@@ -616,7 +606,6 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </div>
-
                   <div className="pt-10 border-t border-white/5 text-center">
                     <p className={`text-[9px] font-black uppercase tracking-[0.3em] transition-all ${isManager ? 'text-blue-500' : 'text-slate-500 opacity-40'}`}>
                       {isManager ? 'Dashboard Editing Enabled' : 'Restricted Manager Data'}
@@ -691,7 +680,6 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           {activeTab === 'staffHub' && <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} testSubmissions={testSubmissions} />}
           {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} monthlySnapshots={monthlySnapshots} onClearAll={handleClearAllData} />}
           {activeTab === 'publicAnswers' && <PublicAnswers assessments={assessments} submissions={testSubmissions} />}
