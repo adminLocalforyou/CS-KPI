@@ -9,10 +9,6 @@ import {
   Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool, Database,
   ListChecks
 } from 'lucide-react';
-import { 
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, Cell
-} from 'recharts';
 import { TEAM_MEMBERS, INITIAL_EVALUATIONS } from './constants.tsx';
 import { EvaluationRecord, QARecord, TestSubmission, ProofRecord, PeerReviewRecord, GrowthMetrics, AssessmentRecord } from './types.ts';
 
@@ -42,6 +38,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
+  // Add 'publicAnswers' to the activeTab types
   const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'team' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
@@ -75,7 +72,6 @@ const App: React.FC = () => {
     returnRate: { returningCount: 0, totalCount: 0 }
   }));
 
-  // Hash Routing Logic
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash;
@@ -87,7 +83,6 @@ const App: React.FC = () => {
         setActiveTab('dashboard');
       }
     };
-
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
@@ -462,6 +457,7 @@ const App: React.FC = () => {
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           {activeTab === 'staffHub' && <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} testSubmissions={testSubmissions} />}
           {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} />}
+          {/* Ensure this line exists for rendering the new tab */}
           {activeTab === 'publicAnswers' && <PublicAnswers assessments={assessments} submissions={testSubmissions} />}
         </div>
       </main>
