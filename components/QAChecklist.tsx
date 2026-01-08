@@ -1,23 +1,13 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ClipboardCheck, 
   Save, 
-  HelpCircle,
-  FileText,
-  User,
-  Calendar,
-  ChevronRight,
-  TrendingUp,
-  Layout,
-  MessageSquare,
-  FileCheck,
-  Mail,
-  Send,
-  MessageCircle,
-  ShieldCheck,
+  FileText, 
+  User, 
+  ShieldCheck, 
   Zap,
-  // Added Info icon to fix line 272 error
+  Mail,
+  MessageCircle,
   Info
 } from 'lucide-react';
 import { TEAM_MEMBERS } from '../constants.tsx';
@@ -27,7 +17,7 @@ interface QAChecklistProps {
   onSave: (record: QARecord) => void;
 }
 
-const INITIAL_SECTIONS: Omit<QASection, 'overallScore'>[] = [
+const getInitialSections = (): QASection[] => [
   {
     title: "1. Handling Live Projects (Project LIVE & Average Project Completion Time)",
     items: [
@@ -66,7 +56,12 @@ const INITIAL_SECTIONS: Omit<QASection, 'overallScore'>[] = [
 
 const QAChecklist: React.FC<QAChecklistProps> = ({ onSave }) => {
   const [staffId, setStaffId] = useState(TEAM_MEMBERS[0].id);
-  const [sections, setSections] = useState<QASection[]>(INITIAL_SECTIONS as QASection[]);
+  const [sections, setSections] = useState<QASection[]>(getInitialSections());
+
+  // Reset form when staff changes to ensure fresh data per evaluation
+  useEffect(() => {
+    setSections(getInitialSections());
+  }, [staffId]);
 
   const handleScoreChange = (sectionIdx: number, itemIdx: number, score: number) => {
     const newSections = [...sections];
@@ -113,26 +108,35 @@ const QAChecklist: React.FC<QAChecklistProps> = ({ onSave }) => {
     });
 
     body += `----------------------------------\n`;
-    body += `Generated via CS Portal v3.8`;
+    body += `Generated via CS Portal`;
 
-    // Updated recipients as requested
     const recipients = "aom@localforyou.com, Sai@localforyou.com";
     const subject = `[QA Report] ${staff?.name} - ${dateStr} (${overallPercentage}%)`;
     window.location.href = `mailto:${recipients}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const handleSave = () => {
+    // Basic validation: ensure at least one score is recorded
+    const hasAnyScore = sections.some(s => s.items.some(i => i.score > 0));
+    if (!hasAnyScore) {
+      alert("กรุณาให้คะแนนอย่างน้อยหนึ่งหัวข้อก่อนบันทึกครับ");
+      return;
+    }
+
     const staff = TEAM_MEMBERS.find(m => m.id === staffId);
     const record: QARecord = {
       id: Date.now().toString(),
       staffId,
       staffName: staff?.name || "Unknown",
       date: new Date().toISOString().split('T')[0],
-      sections,
+      sections: JSON.parse(JSON.stringify(sections)), // Deep copy to prevent reference issues
       overallPercentage
     };
     onSave(record);
-    alert("QA Record Saved Successfully!");
+    
+    // Reset form after saving
+    setSections(getInitialSections());
+    alert("บันทึกผล QA เรียบร้อยแล้ว แบบฟอร์มถูกรีเซ็ตใหม่แล้วครับ");
   };
 
   return (
@@ -235,7 +239,6 @@ const QAChecklist: React.FC<QAChecklistProps> = ({ onSave }) => {
                 </table>
               </div>
               
-              {/* Comment Section for Each Category - Enhanced Visibility */}
               <div className="p-10 bg-slate-50/50 border-t border-slate-100 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="space-y-3">
@@ -269,13 +272,12 @@ const QAChecklist: React.FC<QAChecklistProps> = ({ onSave }) => {
         })}
       </div>
       
-      {/* Footer Info */}
       <div className="bg-slate-900 rounded-[3rem] p-10 text-white flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-600 rounded-xl"><Info size={20} /></div>
-          <p className="text-xs font-medium text-slate-400">การส่งอีเมลจะรวมรายละเอียดคะแนนและคอมเมนต์ทั้งหมดเพื่อแจ้งให้ Supervisor (คุณอ้อม และคุณทราย) รับทราบผลทันที</p>
+          <p className="text-xs font-medium text-slate-400">การบันทึกหรือเปลี่ยนชื่อพนักงานจะทำการรีเซ็ตแบบฟอร์มเพื่อป้องกันข้อมูลสลับกันครับ</p>
         </div>
-        <div className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Verified Audit Portal v3.8</div>
+        <div className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Verified Audit Portal</div>
       </div>
     </div>
   );

@@ -18,10 +18,11 @@ import { PeerReviewRecord } from '../types.ts';
 
 interface PeerReviewCollectorProps {
   onReceiveReview: (record: PeerReviewRecord) => void;
+  forceShowForm?: boolean;
 }
 
-const PeerReviewCollector: React.FC<PeerReviewCollectorProps> = ({ onReceiveReview }) => {
-  const [showForm, setShowForm] = useState(false);
+const PeerReviewCollector: React.FC<PeerReviewCollectorProps> = ({ onReceiveReview, forceShowForm = false }) => {
+  const [showForm, setShowForm] = useState(forceShowForm);
   const [copied, setCopied] = useState(false);
   
   // Internal Form State (For Simulation)
@@ -50,28 +51,34 @@ const PeerReviewCollector: React.FC<PeerReviewCollectorProps> = ({ onReceiveRevi
     };
 
     onReceiveReview(newReview);
-    setShowForm(false);
+    if (!forceShowForm) {
+      setShowForm(false);
+    }
     setReviewerName('');
     setComment('');
-    alert("Peer feedback submitted. Thank you for building a better team!");
   };
 
   const copyLink = () => {
-    const link = "https://cs-dashboard.local/peer-review-2024";
-    navigator.clipboard.writeText(link).then(() => {
+    // Generate actual URL with hash routing support
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
+    const examLink = `${baseUrl}#peer-review`;
+    
+    navigator.clipboard.writeText(examLink).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      alert("Review Link Copied to Clipboard!");
+      alert(`คัดลอกลิ้งค์สำหรับพนักงานแล้ว: ${examLink}`);
     }).catch(err => {
       console.error('Failed to copy: ', err);
-      alert("Review Link: " + link);
+      alert("Review Link: " + examLink);
     });
   };
 
   if (showForm) {
     return (
       <div className="max-w-2xl mx-auto bg-white rounded-[3.5rem] p-12 shadow-2xl animate-in zoom-in-95 duration-300">
-        <button onClick={() => setShowForm(false)} className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-10 hover:text-slate-900 transition-all flex items-center gap-2">← Back to Dashboard</button>
+        {!forceShowForm && (
+          <button onClick={() => setShowForm(false)} className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-10 hover:text-slate-900 transition-all flex items-center gap-2">← Back to Dashboard</button>
+        )}
         
         <div className="space-y-10">
           <div className="text-center space-y-2">

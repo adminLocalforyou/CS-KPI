@@ -2,10 +2,10 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer
 } from 'recharts';
-import { EvaluationRecord, ProofRecord, PeerReviewRecord, TestSubmission } from '../types.ts';
+import { EvaluationRecord, ProofRecord, PeerReviewRecord, TestSubmission, QARecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
 import { 
-  Target, Activity, HeartHandshake, Camera, Clock, MessageCircle, ShieldCheck, Rocket, Zap, GraduationCap, FileCheck, Lock, KeyRound, AlertCircle, CheckCircle2
+  Target, Activity, HeartHandshake, Camera, Clock, MessageCircle, ShieldCheck, Rocket, Zap, GraduationCap, FileCheck, Lock, KeyRound, AlertCircle, CheckCircle2, FileSearch, TrendingUp
 } from 'lucide-react';
 
 interface IndividualDeepDiveProps {
@@ -14,11 +14,12 @@ interface IndividualDeepDiveProps {
   proofs: ProofRecord[];
   peerReviews: PeerReviewRecord[];
   submissions: TestSubmission[];
+  qaRecords: QARecord[];
   onStaffChange: (id: string) => void;
   mode?: 'manager' | 'public';
 }
 
-const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evaluations, proofs, peerReviews, submissions, onStaffChange, mode = 'manager' }) => {
+const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evaluations, proofs, peerReviews, submissions, qaRecords, onStaffChange, mode = 'manager' }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   
@@ -27,6 +28,7 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
   const memberProofs = proofs.filter(p => p.staffId === staffId);
   const memberPeerReviews = peerReviews.filter(r => r.targetStaffId === staffId);
   const memberSubmissions = submissions.filter(s => s.staffName === staff?.name && s.isGraded);
+  const memberQaRecords = qaRecords.filter(q => q.staffId === staffId);
 
   // Reset lock when switching staff
   useEffect(() => {
@@ -62,6 +64,21 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
     const sum = memberPeerReviews.reduce((acc, curr) => acc + (curr.teamworkScore + curr.helpfulnessScore + curr.communicationScore) / 3, 0);
     return Math.round(sum / memberPeerReviews.length);
   }, [memberPeerReviews]);
+
+  const averageExamScore = useMemo(() => {
+    if (memberSubmissions.length === 0) return 0;
+    const sumPct = memberSubmissions.reduce((acc, curr) => {
+      const pct = (curr.autoScore + curr.manualScore) / curr.totalPossiblePoints * 100;
+      return acc + pct;
+    }, 0);
+    return Math.round(sumPct / memberSubmissions.length);
+  }, [memberSubmissions]);
+
+  const averageQaScore = useMemo(() => {
+    if (memberQaRecords.length === 0) return 0;
+    const sumPct = memberQaRecords.reduce((acc, curr) => acc + curr.overallPercentage, 0);
+    return Math.round(sumPct / memberQaRecords.length);
+  }, [memberQaRecords]);
 
   const handleUnlock = () => {
     if (staff && pinInput === staff.passcode) {
@@ -104,32 +121,42 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
-               <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Project SLA Contribution</p>
+               <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">SLA Contribution</p>
                <ShieldCheck size={20} className="text-indigo-400" />
             </div>
             <h4 className="text-5xl font-black tracking-tighter">
                {latestEval?.slaMetCount || 0}<span className="text-indigo-400 text-2xl font-black ml-1">/ {latestEval?.slaTotalBase || 0}</span>
             </h4>
-            <p className="text-xs text-slate-400 font-medium italic">Efficiency: {latestEval?.individualSlaPct || 0}% contribution to global total.</p>
+            <p className="text-xs text-slate-400 font-medium italic">Latest session efficiency.</p>
          </div>
-         <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white space-y-4">
+         <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
-               <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Avg Response Speed</p>
+               <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Avg Response</p>
                <Clock size={20} className="text-blue-200" />
             </div>
             <h4 className="text-5xl font-black tracking-tighter">{latestEval?.responseTimeMin || 0}<span className="text-blue-200 text-2xl font-black ml-1">min</span></h4>
-            <p className="text-xs text-blue-100 font-medium">Lower is better. Reflects daily efficiency.</p>
+            <p className="text-xs text-blue-100 font-medium">Reflects daily operational speed.</p>
          </div>
-         <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-4">
+         {/* NEW: Avg Exam Score Card */}
+         <div className="bg-emerald-600 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project count</p>
-               <Rocket size={20} className="text-blue-600" />
+               <p className="text-[10px] font-black text-emerald-200 uppercase tracking-widest">True Avg Exam</p>
+               <GraduationCap size={20} className="text-emerald-200" />
             </div>
-            <h4 className="text-5xl font-black tracking-tighter text-slate-900">{latestEval?.projectCount || 0}</h4>
-            <p className="text-xs text-slate-400 font-medium">Total systems activated (Active logs).</p>
+            <h4 className="text-5xl font-black tracking-tighter">{averageExamScore}<span className="text-emerald-200 text-2xl font-black ml-1">%</span></h4>
+            <p className="text-xs text-emerald-100 font-medium">Mean of all graded assessments.</p>
+         </div>
+         {/* NEW: Avg QA Score Card */}
+         <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+               <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">True Avg QA</p>
+               <FileSearch size={20} className="text-indigo-200" />
+            </div>
+            <h4 className="text-5xl font-black tracking-tighter">{averageQaScore}<span className="text-indigo-200 text-2xl font-black ml-1">%</span></h4>
+            <p className="text-xs text-indigo-100 font-medium">Average across all quality audits.</p>
          </div>
       </div>
 

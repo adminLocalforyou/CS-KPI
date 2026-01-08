@@ -11,7 +11,12 @@ import {
   GraduationCap,
   PenTool,
   Info,
-  Lock
+  Lock,
+  XCircle,
+  Check,
+  ArrowLeft,
+  FileText,
+  Clock
 } from 'lucide-react';
 import { AssessmentRecord, TestSubmission } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
@@ -116,26 +121,124 @@ const TakeTest: React.FC<TakeTestProps> = ({ test, submissions, onSubmit }) => {
     const totalMax = test.questions.reduce((a, b) => a + b.maxPoints, 0);
 
     return (
-      <div className="min-h-screen bg-indigo-900 text-white flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-500">
-        <div className="bg-white/10 p-10 rounded-[4rem] backdrop-blur-xl border border-white/10 max-w-2xl w-full">
-          <Award size={80} className="mx-auto text-yellow-400 mb-6" />
-          <h2 className="text-4xl font-black mb-6">Submission Success!</h2>
-          
-          <div className="bg-white rounded-[2.5rem] p-10 text-slate-900 shadow-2xl mb-8">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">พนักงาน: {selectedStaffName}</p>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 mt-4">Calculated Score (Choices Only)</p>
-            <div className="text-7xl font-black tracking-tighter text-indigo-600">
-              {autoScore}<span className="text-slate-200">/{totalMax}</span>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center p-6 md:p-12 animate-in fade-in duration-500 overflow-y-auto">
+        <div className="max-w-4xl w-full space-y-10">
+          {/* Header Card */}
+          <div className="bg-indigo-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden text-center">
+            <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none rotate-12"><Award size={200} /></div>
+            <div className="relative z-10 space-y-4">
+              <div className="w-20 h-20 bg-yellow-400 text-indigo-900 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl">
+                <CheckCircle2 size={48} />
+              </div>
+              <h2 className="text-4xl font-black tracking-tight">คุณส่งข้อสอบเรียบร้อยแล้ว!</h2>
+              <p className="text-indigo-200 font-bold">ขอบคุณที่ตั้งใจทำข้อสอบครับ {selectedStaffName}</p>
+            </div>
+          </div>
+
+          {/* Results Summary Card */}
+          <div className="bg-white rounded-[3.5rem] p-10 shadow-xl border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-10">
+            <div className="flex-1 text-center md:text-left space-y-2">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Calculated Choice Score</p>
+              <div className="flex items-baseline justify-center md:justify-start gap-2">
+                <span className="text-7xl font-black text-indigo-600 tracking-tighter">{autoScore}</span>
+                <span className="text-2xl font-black text-slate-200">/ {totalMax}</span>
+              </div>
             </div>
             
             {hasWritten && (
-              <div className="mt-8 p-6 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-4 text-left">
-                <AlertCircle className="text-amber-600 flex-shrink-0" />
-                <p className="text-sm font-bold text-amber-800">เนื่องจากคุณมีคำถามส่วน "ข้อเขียน" หัวหน้าจะมาตรวจให้คะแนนส่วนที่เหลือและแจ้งคะแนนสรุปอีกครั้งภายหลังครับ ข้อมูลได้ถูกส่งเข้า Grading Desk แล้ว</p>
+              <div className="flex-1 bg-amber-50 p-8 rounded-[2.5rem] border border-amber-100 flex items-start gap-5">
+                <div className="p-3 bg-white rounded-2xl shadow-sm text-amber-500 flex-shrink-0">
+                  <Clock size={24} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-amber-900 uppercase">Pending Review</h4>
+                  <p className="text-[13px] font-bold text-amber-700 leading-relaxed">
+                    มีส่วนที่เป็น <span className="text-amber-900">"ข้อเขียน"</span> รอ supervisor ตรวจสอบ จะมีการอัปเดตผลสรุปที่เมนู Exam Review ภายหลังครับ
+                  </p>
+                </div>
               </div>
             )}
           </div>
-          <button onClick={() => { window.location.hash = ''; window.location.reload(); }} className="text-indigo-200 font-bold hover:text-white transition-colors">← Back to Portal</button>
+
+          {/* Immediate Review Section */}
+          <div className="space-y-8">
+            <h3 className="text-xl font-black text-slate-800 flex items-center gap-3 px-6">
+              <FileText className="text-blue-500" /> ตรวจทานผลการตอบ (Immediate Review)
+            </h3>
+
+            {test.questions.map((q, idx) => {
+              const userAnswer = answers[q.id];
+              const isCorrect = q.type === 'choice' ? userAnswer === q.correctAnswer : null;
+
+              return (
+                <div key={q.id} className={`bg-white rounded-[2.5rem] p-8 border shadow-sm transition-all ${isCorrect === true ? 'border-emerald-100' : isCorrect === false ? 'border-rose-100' : 'border-slate-100'}`}>
+                  <div className="flex items-start gap-6">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${isCorrect === true ? 'bg-emerald-500 text-white' : isCorrect === false ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 space-y-6">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-slate-800 text-lg leading-relaxed">{q.question}</h4>
+                        <div className="shrink-0">
+                          {q.type === 'choice' ? (
+                            isCorrect ? (
+                              <div className="flex items-center gap-2 text-emerald-600 font-black uppercase text-[10px] bg-emerald-50 px-3 py-1 rounded-full">
+                                <Check size={14} /> Correct
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-rose-600 font-black uppercase text-[10px] bg-rose-50 px-3 py-1 rounded-full">
+                                <XCircle size={14} /> Incorrect
+                              </div>
+                            )
+                          ) : (
+                            <div className="flex items-center gap-2 text-amber-600 font-black uppercase text-[10px] bg-amber-50 px-3 py-1 rounded-full">
+                              <PenTool size={14} /> Manual Grading
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">คำตอบของคุณ</p>
+                          <div className={`p-4 rounded-2xl text-sm font-bold ${isCorrect === true ? 'bg-emerald-50 text-emerald-800' : isCorrect === false ? 'bg-rose-50 text-rose-800' : 'bg-slate-50 text-slate-700'}`}>
+                            {userAnswer || '(ไม่ได้ตอบ)'}
+                          </div>
+                        </div>
+
+                        {q.type === 'choice' && !isCorrect && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">คำตอบที่ถูกต้อง (เฉลย)</p>
+                            <div className="p-4 bg-slate-900 rounded-2xl text-sm font-black text-white shadow-lg">
+                              {q.correctAnswer}
+                            </div>
+                          </div>
+                        )}
+
+                        {q.type === 'written' && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">สถานะการตรวจ</p>
+                            <div className="p-4 bg-white border border-amber-100 rounded-2xl text-xs font-bold text-amber-600 flex items-center gap-2 italic">
+                              <Info size={14} /> รอ Supervisor ให้คะแนนตามเกณฑ์ BARS
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-center pt-10">
+            <button 
+              onClick={() => { window.location.hash = ''; window.location.reload(); }} 
+              className="flex items-center gap-3 px-12 py-5 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-black transition-all shadow-2xl active:scale-95"
+            >
+              <ArrowLeft size={18} /> Return to Portal Home
+            </button>
+          </div>
         </div>
       </div>
     );

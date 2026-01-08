@@ -29,7 +29,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.1.5-UI-REFINEMENT";
+const APP_VERSION = "4.4.0-PEER-LINK-FIX";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -41,7 +41,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis' | 'team'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis' | 'team' | 'publicPeerReview'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
@@ -83,6 +83,8 @@ const App: React.FC = () => {
         const testId = hash.replace('#test=', '');
         setActiveTestId(testId);
         setActiveTab('takeTest');
+      } else if (hash === '#peer-review') {
+        setActiveTab('publicPeerReview');
       }
     };
     handleHash();
@@ -112,7 +114,7 @@ const App: React.FC = () => {
     } else {
       setActiveTab(tab);
       if (tab === 'publicStaffAnalysis') setPublicActiveStaffId(null);
-      if (tab !== 'takeTest') window.location.hash = '';
+      if (tab !== 'takeTest' && tab !== 'publicPeerReview') window.location.hash = '';
     }
   };
 
@@ -292,7 +294,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {activeTab !== 'takeTest' && (
+      {activeTab !== 'takeTest' && activeTab !== 'publicPeerReview' && (
         <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 transition-all duration-300 ease-in-out flex flex-col z-50 shadow-2xl shadow-black/20`}>
           <div className="p-6 flex items-center gap-4">
             <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20"><Target className="text-white" size={24} /></div>
@@ -335,7 +337,7 @@ const App: React.FC = () => {
       )}
 
       <main className="flex-1 overflow-y-auto relative">
-        {activeTab !== 'takeTest' && (
+        {activeTab !== 'takeTest' && activeTab !== 'publicPeerReview' && (
           <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40 shadow-sm">
             <div className="flex items-center gap-3">
               <span className={`text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest ${isManager ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
@@ -352,9 +354,10 @@ const App: React.FC = () => {
           </header>
         )}
 
-        <div className={activeTab === 'takeTest' ? '' : 'p-8 max-w-7xl mx-auto w-full pb-32'}>
+        <div className={(activeTab === 'takeTest' || activeTab === 'publicPeerReview') ? '' : 'p-8 max-w-7xl mx-auto w-full pb-32'}>
           {activeTab === 'dashboard' && (
             <div className="space-y-12 animate-in fade-in duration-700">
+              {/* ... existing dashboard code ... */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <StatCard label="Overall Perf" value={`${globalStats.overallPerf}%`} sub="Global Index" icon={Activity} color="blue" />
                 <StatCard label="Retention" value={`${globalStats.retentionPct}%`} sub="Customer Loyalty" icon={UserMinus} color="purple" />
@@ -529,7 +532,6 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* AI Team Intelligence (Integrated at the bottom of Dashboard) */}
                   <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />
                 </div>
 
@@ -571,10 +573,10 @@ const App: React.FC = () => {
                             <div className="space-y-1">
                               <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Global Avg Speed (Min)</label>
                               <input 
-                                type="number" min="0"
+                                type="number" step="0.01" min="0"
                                 className="w-full bg-slate-800 text-2xl font-black text-purple-400 outline-none p-1 rounded-lg border border-white/5"
                                 value={otherKPIs.responseSpeed.met}
-                                onChange={(e) => updateOtherKPI('responseSpeed', parseInt(e.target.value) || 0)}
+                                onChange={(e) => updateOtherKPI('responseSpeed', parseFloat(e.target.value) || 0)}
                               />
                             </div>
                           ) : (
@@ -590,7 +592,6 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Finalize & Save Report - Positioned below Daily KPIs */}
                   <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12 pointer-events-none group-hover:scale-110 transition-transform duration-500">
                       <Archive size={100} />
@@ -620,13 +621,40 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'evaluate' && <EvaluationForm projectSLA={projectSLA} submissions={testSubmissions} onAdd={(e) => { setEvaluations([...evaluations, e]); setActiveTab('dashboard'); }} />}
+          {activeTab === 'evaluate' && (
+            <EvaluationForm 
+              projectSLA={projectSLA} 
+              submissions={testSubmissions} 
+              onAdd={(records) => { 
+                setEvaluations([...evaluations, ...records]); 
+                setActiveTab('dashboard'); 
+              }} 
+            />
+          )}
           {activeTab === 'qa' && <QAChecklist onSave={(r) => { setQaRecords([...qaRecords, r]); setActiveTab('dashboard'); }} />}
           {activeTab === 'assessment' && <AssessmentCenter assessments={assessments} onSave={(a) => setAssessments([a, ...assessments])} onTakeTest={handleTakeTest} onDelete={(id) => setAssessments(assessments.filter(a => a.id !== id))} />}
           {activeTab === 'grading' && <GradingDesk submissions={testSubmissions} assessments={assessments} onUpdate={(s) => setTestSubmissions(prev => prev.map(item => item.id === s.id ? s : item))} />}
           {activeTab === 'takeTest' && <TakeTest test={assessments.find(a => a.id === activeTestId)} submissions={testSubmissions} onSubmit={(s) => { setTestSubmissions([...testSubmissions, s]); setActiveTab('dashboard'); window.location.hash = ''; }} />}
           {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([p, ...proofRecords])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
-          {activeTab === 'peerReview' && <PeerReviewCollector onReceiveReview={(r) => setPeerReviewRecords([r, ...peerReviewRecords])} />}
+          
+          {activeTab === 'peerReview' && (
+            <PeerReviewCollector onReceiveReview={(r) => { setPeerReviewRecords([r, ...peerReviewRecords]); setActiveTab('dashboard'); }} />
+          )}
+
+          {activeTab === 'publicPeerReview' && (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+              <PeerReviewCollector 
+                onReceiveReview={(r) => { 
+                  setPeerReviewRecords([r, ...peerReviewRecords]); 
+                  alert("ขอบคุณสำหรับข้อมูลครับ ฟีดแบ็กของคุณถูกบันทึกเข้าระบบแล้ว");
+                  window.location.hash = '';
+                  setActiveTab('dashboard'); 
+                }} 
+                forceShowForm={true}
+              />
+            </div>
+          )}
+
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           
           {activeTab === 'publicStaffAnalysis' && !publicActiveStaffId && (
@@ -679,6 +707,7 @@ const App: React.FC = () => {
                 proofs={proofRecords} 
                 peerReviews={peerReviewRecords} 
                 submissions={testSubmissions}
+                qaRecords={qaRecords}
                 onStaffChange={setSelectedStaffId}
                 mode={activeTab === 'publicStaffAnalysis' ? 'public' : 'manager'}
               />

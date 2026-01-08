@@ -11,10 +11,23 @@ import {
   ChevronRight,
   Target,
   RefreshCcw,
-  ShieldAlert
+  ShieldAlert,
+  Key
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { EvaluationRecord, QARecord } from '../types.ts';
+
+// Fix: Define AIStudio and use it to type window.aistudio to avoid conflicts with global declarations.
+interface AIStudio {
+  hasSelectedApiKey: () => Promise<boolean>;
+  openSelectKey: () => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    readonly aistudio: AIStudio;
+  }
+}
 
 interface PerformanceSummary {
   id: string;
@@ -42,6 +55,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsKey, setNeedsKey] = useState(false);
 
   const hasEnoughData = evaluations.length > 0 || qaRecords.length > 0;
 
@@ -53,8 +67,18 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
 
     setLoading(true);
     setError(null);
+    setNeedsKey(false);
+
     try {
-      // CRITICAL: Always create new instance inside the call
+      // Check for API key availability
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasKey && !process.env.API_KEY) {
+        setNeedsKey(true);
+        setLoading(false);
+        return;
+      }
+
+      // CRITICAL: Always create new instance inside the call to get the latest key
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const teamContext = teamPerformance.map(p => {
@@ -90,10 +114,12 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
         Format: JSON exactly matching the schema.
       `;
 
+      // Upgraded to gemini-3-pro-preview for complex reasoning task
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3-pro-preview",
         contents: prompt,
         config: {
+          thinkingConfig: { thinkingBudget: 4000 },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -124,13 +150,22 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
       setAnalysis(result);
     } catch (err: any) {
       console.error("AI Analysis failed:", err);
-      setError("AI ประมวลผลล้มเหลว: " + (err.message || "Unknown error"));
+      // Handle missing entity or key error by resetting key selection
+      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API Key")) {
+        setNeedsKey(true);
+      } else {
+        setError("AI ประมวลผลล้มเหลว: " + (err.message || "Unknown error"));
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Improved Effect: Trigger when teamPerformance is actually loaded with real scores
+  const handleSelectKey = async () => {
+    await window.aistudio.openSelectKey();
+    runAnalysis(); // Re-trigger analysis after key selection
+  };
+
   useEffect(() => {
     const hasScores = teamPerformance.some(p => p.score > 0);
     if (hasScores && hasEnoughData && !analysis) {
@@ -147,7 +182,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
           </div>
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-              AI Team Intelligence <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] rounded-full uppercase">Gemini Powered</span>
+              AI Team Intelligence <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] rounded-full uppercase">Gemini 3 Pro</span>
             </h2>
             <p className="text-slate-400 text-sm mt-0.5 font-medium italic">Efficiency & SLA Performance Insights</p>
           </div>
@@ -176,6 +211,25 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
               <p className="text-slate-400 font-bold text-xs max-w-xs mx-auto">กรุณาบันทึก "Performance Log" หรือผล "QA Checks" เพื่อให้ AI เริ่มการวิเคราะห์ทีม</p>
            </div>
         </div>
+      ) : needsKey ? (
+        <div className="bg-amber-50 p-12 rounded-[3rem] border border-amber-200 text-center space-y-6 animate-in zoom-in-95">
+           <div className="w-16 h-16 bg-white text-amber-500 rounded-full flex items-center justify-center mx-auto shadow-sm">
+              <Key size={32} />
+           </div>
+           <div className="space-y-2">
+              <h3 className="text-xl font-black text-amber-900">API Key Required</h3>
+              <p className="text-amber-700 font-bold text-sm max-w-md mx-auto">
+                สำหรับการวิเคราะห์เชิงลึกด้วย Gemini 3 Pro กรุณาเลือก API Key จากโปรเจกต์ที่มีการตั้งค่า Billing เรียบร้อยแล้ว
+              </p>
+              <p className="text-[10px] text-amber-500 font-medium">ดูข้อมูลเพิ่มเติมที่: ai.google.dev/gemini-api/docs/billing</p>
+           </div>
+           <button 
+             onClick={handleSelectKey}
+             className="px-8 py-4 bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-amber-700 active:scale-95 transition-all"
+           >
+             Connect Gemini API Key
+           </button>
+        </div>
       ) : error ? (
         <div className="bg-rose-50 p-8 rounded-[2.5rem] border border-rose-100 flex items-center gap-6">
            <AlertCircle size={32} className="text-rose-500 flex-shrink-0" />
@@ -188,7 +242,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
       ) : loading ? (
         <div className="flex flex-col items-center justify-center py-12 gap-3">
           <Loader2 size={48} className="animate-spin text-indigo-600" />
-          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Gemini is correlating team SLA datasets...</p>
+          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Gemini Pro is correlating team SLA datasets...</p>
         </div>
       ) : analysis ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in fade-in duration-700">
