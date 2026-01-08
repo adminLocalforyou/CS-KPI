@@ -73,7 +73,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
     }
   };
 
-  // Safe Guard
   if (!staff) {
     return (
       <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-dashed border-slate-200 text-slate-400">
@@ -85,7 +84,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-32">
-      {/* Header Section */}
       <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="flex items-center gap-6">
           <div className="w-24 h-24 rounded-[2.5rem] bg-slate-900 text-white flex items-center justify-center text-3xl font-black">
@@ -106,7 +104,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
         )}
       </div>
 
-      {/* Quantitative Efficiency Section - Publicly Visible */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-4">
             <div className="flex items-center justify-between">
@@ -137,7 +134,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Competency Radar - Publicly Visible */}
         <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
           <h3 className="font-black text-xl text-slate-800 mb-8 flex items-center gap-2"><Target className="text-blue-500" /> Competency Radar</h3>
           <div className="h-[300px] w-full">
@@ -151,7 +147,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
           </div>
         </div>
 
-        {/* Manager-only Views: Peer Feedback & Proof Overview */}
         {mode === 'manager' && (
           <>
             <div className="bg-indigo-900 p-10 rounded-[3rem] text-white shadow-xl flex flex-col justify-between">
@@ -184,7 +179,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
           </>
         )}
 
-        {/* Public Personal Data Section: Protected by PIN */}
         {mode === 'public' && (
           <div className="lg:col-span-2 space-y-8">
             {!isUnlocked ? (
@@ -211,7 +205,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in zoom-in-95 duration-500">
-                {/* 1. Unlocked Exam History */}
                 <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col">
                    <div className="flex items-center gap-3 mb-8">
                      <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl"><GraduationCap size={20} /></div>
@@ -242,7 +235,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
                    </div>
                 </div>
 
-                {/* 2. Unlocked Proof History */}
                 <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col">
                    <div className="flex items-center gap-3 mb-8">
                      <div className="p-3 bg-amber-50 text-amber-500 rounded-2xl"><Camera size={20} /></div>
@@ -274,7 +266,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
           </div>
         )}
 
-        {/* If manager mode, show Exam History without PIN (Existing logic) */}
         {mode === 'manager' && (
           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col">
              <div className="flex items-center gap-3 mb-8">

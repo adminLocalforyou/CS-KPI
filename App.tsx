@@ -28,7 +28,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.0.2";
+const APP_VERSION = "4.0.5-STABLE";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -72,7 +72,7 @@ const App: React.FC = () => {
 
   const [growthMetrics, setGrowthMetrics] = useState<GrowthMetrics>(() => loadState('cs_growth_metrics_v1', {
     retention: { startCount: 0, endCount: 0, newCount: 0 },
-    retentionRate: { returningCount: 0, totalCount: 0 }
+    returnRate: { returningCount: 0, totalCount: 0 }
   }));
 
   useEffect(() => {
@@ -103,7 +103,6 @@ const App: React.FC = () => {
   }, [evaluations, qaRecords, proofRecords, peerReviewRecords, assessments, testSubmissions, projectSLA, otherKPIs, growthMetrics, monthlySnapshots]);
 
   const handleTabSwitch = (tab: any) => {
-    // Only lock tabs that are explicitly for managers
     const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'peerReview', 'assessment', 'grading', 'masterRecord', 'team'];
     
     if (managerTabs.includes(tab) && !isManager) {
@@ -116,7 +115,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Fixed missing handleTakeTest function used in AssessmentCenter
   const handleTakeTest = (id: string) => {
     setActiveTestId(id);
     setActiveTab('takeTest');
@@ -174,17 +172,17 @@ const App: React.FC = () => {
 
     const { retention, returnRate } = growthMetrics;
     const retentionPct = retention.startCount > 0 ? ((retention.endCount - retention.newCount) / retention.startCount) * 100 : 0;
-    const returnRatePct = returnRate?.totalCount > 0 ? (returnRate.returningCount / returnRate.totalCount) * 100 : 0;
+    const returnRatePct = returnRate.totalCount > 0 ? (returnRate.returningCount / returnRate.totalCount) * 100 : 0;
     const teamAvg = teamPerformanceData.length > 0 ? teamPerformanceData.reduce((a, b) => a + b.score, 0) / teamPerformanceData.length : 0;
 
     return { 
-      overallPerf: Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + (returnRatePct || 0)) / 6), 
+      overallPerf: Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + returnRatePct) / 6), 
       overallSla: Math.round(projectSlaTotal), 
       csatPct: Math.round(csatPct), 
       csatAvg: csatAvg,
       avgSpeed: avgMinutes,
       retentionPct: Math.max(0, Math.round(retentionPct)),
-      returnRatePct: Math.round(returnRatePct || 0),
+      returnRatePct: Math.round(returnRatePct),
       rPct: Math.round(rPct), 
       mPct: Math.round(mPct), 
       aPct: Math.round(aPct)
@@ -288,7 +286,141 @@ const App: React.FC = () => {
                 <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="Building Met" icon={Zap} color="orange" />
                 <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="Daily Speed" icon={Clock} color="purple" />
               </div>
-              {/* Other dashboard components here... */}
+
+              {/* Restored UI Layout: Project SLA Status & Daily KPIs */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                {/* Left Column: Project SLA Status */}
+                <div className="lg:col-span-2 space-y-10">
+                  <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm relative overflow-hidden">
+                    <div className="flex justify-between items-start mb-10">
+                      <div>
+                        <h3 className="text-3xl font-black text-slate-900 tracking-tight">Project SLA Status</h3>
+                        <p className="text-slate-400 font-bold text-sm">Real-time status of current building SLA</p>
+                      </div>
+                      <div className="flex items-center gap-4 bg-slate-50 px-6 py-3 rounded-3xl border border-slate-100">
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overall Met</p>
+                          <p className="text-2xl font-black text-blue-600">{globalStats.overallSla}%</p>
+                        </div>
+                        <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg">
+                          <Sparkles size={20} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Restaurant Card */}
+                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-4 bg-rose-50 text-rose-500 rounded-[2rem] shadow-sm"><Store size={24} /></div>
+                          <h4 className="font-black text-slate-700">Restaurant</h4>
+                        </div>
+                        <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.rPct}%</p>
+                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-slate-100">
+                          <span className="text-slate-400">Volume: {projectSLA.restaurant.total}</span>
+                          <span className="text-blue-500">Met: {projectSLA.restaurant.met}</span>
+                        </div>
+                      </div>
+
+                      {/* Massage Card */}
+                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-4 bg-emerald-50 text-emerald-500 rounded-[2rem] shadow-sm"><Stethoscope size={24} /></div>
+                          <h4 className="font-black text-slate-700">Massage</h4>
+                        </div>
+                        <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.mPct}%</p>
+                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-slate-100">
+                          <span className="text-slate-400">Volume: {projectSLA.massage.total}</span>
+                          <span className="text-blue-500">Met: {projectSLA.massage.met}</span>
+                        </div>
+                      </div>
+
+                      {/* AI Card */}
+                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-4 bg-blue-50 text-blue-500 rounded-[2rem] shadow-sm"><Bot size={24} /></div>
+                          <h4 className="font-black text-slate-700 leading-tight">AI<br/>Receptionist</h4>
+                        </div>
+                        <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.aPct}%</p>
+                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-slate-100">
+                          <span className="text-slate-400">Volume: {projectSLA.ai.total}</span>
+                          <span className="text-blue-500">Met: {projectSLA.ai.met}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Loyalty Metrics */}
+                  <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm relative overflow-hidden">
+                    <div className="flex items-center gap-6 mb-10">
+                      <div className="p-5 bg-purple-600 text-white rounded-[2rem] shadow-xl"><TrendingUp size={32} /></div>
+                      <div>
+                        <h3 className="text-3xl font-black text-slate-900 tracking-tight">Customer Loyalty Metrics</h3>
+                        <p className="text-slate-400 font-bold text-sm">Retention and Repeat service analysis</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <UserMinus className="text-purple-600" size={24} />
+                          <h4 className="font-black text-slate-700 text-xl">Retention</h4>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-4xl font-black text-purple-600 tracking-tighter">{globalStats.retentionPct}%</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase mt-2">Data analysis active (Read Only)</p>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <RefreshCcw className="text-orange-500" size={24} />
+                          <h4 className="font-black text-slate-700 text-xl">Return Rate</h4>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-4xl font-black text-orange-500 tracking-tighter">{globalStats.returnRatePct}%</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase mt-2">Data analysis active (Read Only)</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Daily KPIs Sidebar */}
+                <div className="bg-slate-900 rounded-[3.5rem] p-10 text-white shadow-2xl space-y-12">
+                  <div className="flex items-center gap-4 mb-4">
+                    <ShieldCheck className="text-blue-500" size={28} />
+                    <h3 className="text-2xl font-black tracking-tight uppercase">Daily KPIs</h3>
+                  </div>
+
+                  <div className="space-y-10">
+                    {/* CSAT Row */}
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center px-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">CSAT Score ({globalStats.csatPct}%)</p>
+                        <Smile size={18} className="text-emerald-400" />
+                      </div>
+                      <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] flex flex-col justify-center h-24">
+                        <p className="text-xs font-black text-blue-400/60 uppercase italic">Secure KPI Vault</p>
+                      </div>
+                    </div>
+
+                    {/* Response Speed Row */}
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center px-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response Speed ({globalStats.avgSpeed} min)</p>
+                        <Clock size={18} className="text-purple-400" />
+                      </div>
+                      <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] flex flex-col justify-center h-24">
+                        <p className="text-xs font-black text-blue-400/60 uppercase italic">Secure KPI Vault</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-10 border-t border-white/5 opacity-40">
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-center text-slate-500">Restricted Manager Data</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
