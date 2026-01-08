@@ -29,7 +29,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.0.7-CLEANUP";
+const APP_VERSION = "4.0.8-FIX-CALC";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -120,7 +120,7 @@ const App: React.FC = () => {
     const passcode = prompt("⚠️ คำเตือน: ข้อมูลทั้งหมดจะถูกลบ! กรุณาใส่รหัสผ่าน 0000 เพื่อยืนยัน:");
     if (passcode === '0000') {
       if (confirm("ยืนยันการล้างฐานข้อมูลระบบทั้งหมด? (ไม่สามารถกู้คืนได้)")) {
-        setEvaluations(INITIAL_EVALUATIONS);
+        setEvaluations([]);
         setQaRecords([]);
         setProofRecords([]);
         setPeerReviewRecords([]);
@@ -214,19 +214,30 @@ const App: React.FC = () => {
     const aPct = projectSLA.ai.total > 0 ? (projectSLA.ai.met / projectSLA.ai.total) * 100 : 0;
     const projectSlaTotal = (rPct + mPct + aPct) / 3;
     
+    // Fix: CSAT Pct should be 0 if no volume
     const csatAvg = otherKPIs.csat.met || 0;
-    const csatPct = (csatAvg / 5) * 100;
+    const csatPct = otherKPIs.csat.total > 0 ? (csatAvg / 5) * 100 : 0;
     
+    // Fix: Speed Score should be 0 if no response time data
     const avgMinutes = otherKPIs.responseSpeed.met;
-    const speedScore = Math.max(0, Math.min(100, 100 - (avgMinutes - 5) * 10)); 
+    const speedScore = otherKPIs.responseSpeed.total > 0 
+      ? Math.max(0, Math.min(100, 100 - (avgMinutes - 5) * 10))
+      : 0;
 
     const { retention, returnRate } = growthMetrics;
     const retentionPct = retention.startCount > 0 ? ((retention.endCount - retention.newCount) / retention.startCount) * 100 : 0;
     const returnRatePct = returnRate.totalCount > 0 ? (returnRate.returningCount / returnRate.totalCount) * 100 : 0;
-    const teamAvg = teamPerformanceData.length > 0 ? teamPerformanceData.reduce((a, b) => a + b.score, 0) / teamPerformanceData.length : 0;
+    
+    // Check if team has any evaluations before calculating team average contribution
+    const teamAvg = (evaluations.length > 0 && teamPerformanceData.length > 0) 
+      ? teamPerformanceData.reduce((a, b) => a + b.score, 0) / teamPerformanceData.length 
+      : 0;
+
+    // Calculate Overall Perf (must be 0 if no data exists)
+    const overall = Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + returnRatePct) / 6);
 
     return { 
-      overallPerf: Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + returnRatePct) / 6), 
+      overallPerf: isNaN(overall) ? 0 : overall, 
       overallSla: Math.round(projectSlaTotal), 
       csatPct: Math.round(csatPct), 
       csatAvg: csatAvg,
@@ -237,7 +248,7 @@ const App: React.FC = () => {
       mPct: Math.round(mPct), 
       aPct: Math.round(aPct)
     };
-  }, [projectSLA, otherKPIs, growthMetrics, teamPerformanceData]);
+  }, [projectSLA, otherKPIs, growthMetrics, teamPerformanceData, evaluations]);
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
