@@ -73,7 +73,7 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
     }
   };
 
-  // หากไม่พบพนักงานในระบบ ให้แสดงข้อความแจ้งเตือนแทนการ Crash
+  // Safe Guard
   if (!staff) {
     return (
       <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-dashed border-slate-200 text-slate-400">
@@ -129,7 +129,7 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project count</p>
-               <rocket size={20} className="text-blue-600" />
+               <Rocket size={20} className="text-blue-600" />
             </div>
             <h4 className="text-5xl font-black tracking-tighter text-slate-900">{latestEval?.projectCount || 0}</h4>
             <p className="text-xs text-slate-400 font-medium">Total systems activated (Active logs).</p>
