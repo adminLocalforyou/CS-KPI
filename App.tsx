@@ -29,7 +29,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.0.8-FIX-CALC";
+const APP_VERSION = "4.0.9-EDITABLE-DASH";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -214,11 +214,9 @@ const App: React.FC = () => {
     const aPct = projectSLA.ai.total > 0 ? (projectSLA.ai.met / projectSLA.ai.total) * 100 : 0;
     const projectSlaTotal = (rPct + mPct + aPct) / 3;
     
-    // Fix: CSAT Pct should be 0 if no volume
     const csatAvg = otherKPIs.csat.met || 0;
     const csatPct = otherKPIs.csat.total > 0 ? (csatAvg / 5) * 100 : 0;
     
-    // Fix: Speed Score should be 0 if no response time data
     const avgMinutes = otherKPIs.responseSpeed.met;
     const speedScore = otherKPIs.responseSpeed.total > 0 
       ? Math.max(0, Math.min(100, 100 - (avgMinutes - 5) * 10))
@@ -228,12 +226,10 @@ const App: React.FC = () => {
     const retentionPct = retention.startCount > 0 ? ((retention.endCount - retention.newCount) / retention.startCount) * 100 : 0;
     const returnRatePct = returnRate.totalCount > 0 ? (returnRate.returningCount / returnRate.totalCount) * 100 : 0;
     
-    // Check if team has any evaluations before calculating team average contribution
     const teamAvg = (evaluations.length > 0 && teamPerformanceData.length > 0) 
       ? teamPerformanceData.reduce((a, b) => a + b.score, 0) / teamPerformanceData.length 
       : 0;
 
-    // Calculate Overall Perf (must be 0 if no data exists)
     const overall = Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + returnRatePct) / 6);
 
     return { 
@@ -249,6 +245,28 @@ const App: React.FC = () => {
       aPct: Math.round(aPct)
     };
   }, [projectSLA, otherKPIs, growthMetrics, teamPerformanceData, evaluations]);
+
+  // Handler for dashboard editing
+  const updateProjectMetric = (project: keyof typeof projectSLA, field: 'total' | 'met', val: number) => {
+    setProjectSLA(prev => ({
+      ...prev,
+      [project]: { ...prev[project], [field]: val }
+    }));
+  };
+
+  const updateOtherKPI = (kpi: keyof typeof otherKPIs, val: number) => {
+    setOtherKPIs(prev => ({
+      ...prev,
+      [kpi]: { total: 1, met: val } // Setting total to 1 to signify data exists
+    }));
+  };
+
+  const updateGrowthMetric = (category: 'retention' | 'returnRate', field: string, val: number) => {
+    setGrowthMetrics(prev => ({
+      ...prev,
+      [category]: { ...prev[category], [field]: val }
+    }));
+  };
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
@@ -348,15 +366,15 @@ const App: React.FC = () => {
                 <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="Daily Speed" icon={Clock} color="purple" />
               </div>
 
-              {/* Restored UI Layout: Project SLA Status & Daily KPIs */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                {/* Left Column: Project SLA Status */}
                 <div className="lg:col-span-2 space-y-10">
                   <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm relative overflow-hidden">
                     <div className="flex justify-between items-start mb-10">
                       <div>
                         <h3 className="text-3xl font-black text-slate-900 tracking-tight">Project SLA Status</h3>
-                        <p className="text-slate-400 font-bold text-sm">Real-time status of current building SLA</p>
+                        <p className="text-slate-400 font-bold text-sm">
+                          {isManager ? 'Edit current volume and success count' : 'Real-time status of current building SLA'}
+                        </p>
                       </div>
                       <div className="flex items-center gap-4 bg-slate-50 px-6 py-3 rounded-3xl border border-slate-100">
                         <div className="text-right">
@@ -377,9 +395,24 @@ const App: React.FC = () => {
                           <h4 className="font-black text-slate-700">Restaurant</h4>
                         </div>
                         <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.rPct}%</p>
-                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-slate-100">
-                          <span className="text-slate-400">Volume: {projectSLA.restaurant.total}</span>
-                          <span className="text-blue-500">Met: {projectSLA.restaurant.met}</span>
+                        <div className="space-y-4 pt-2 border-t border-slate-100">
+                          {isManager ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total</label>
+                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none" value={projectSLA.restaurant.total} onChange={(e) => updateProjectMetric('restaurant', 'total', parseInt(e.target.value) || 0)} />
+                              </div>
+                              <div>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Met</label>
+                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none text-blue-600" value={projectSLA.restaurant.met} onChange={(e) => updateProjectMetric('restaurant', 'met', parseInt(e.target.value) || 0)} />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                              <span className="text-slate-400">Volume: {projectSLA.restaurant.total}</span>
+                              <span className="text-blue-500">Met: {projectSLA.restaurant.met}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -390,9 +423,24 @@ const App: React.FC = () => {
                           <h4 className="font-black text-slate-700">Massage</h4>
                         </div>
                         <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.mPct}%</p>
-                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-slate-100">
-                          <span className="text-slate-400">Volume: {projectSLA.massage.total}</span>
-                          <span className="text-blue-500">Met: {projectSLA.massage.met}</span>
+                        <div className="space-y-4 pt-2 border-t border-slate-100">
+                          {isManager ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total</label>
+                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none" value={projectSLA.massage.total} onChange={(e) => updateProjectMetric('massage', 'total', parseInt(e.target.value) || 0)} />
+                              </div>
+                              <div>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Met</label>
+                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none text-blue-600" value={projectSLA.massage.met} onChange={(e) => updateProjectMetric('massage', 'met', parseInt(e.target.value) || 0)} />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                              <span className="text-slate-400">Volume: {projectSLA.massage.total}</span>
+                              <span className="text-blue-500">Met: {projectSLA.massage.met}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -403,15 +451,29 @@ const App: React.FC = () => {
                           <h4 className="font-black text-slate-700 leading-tight">AI<br/>Receptionist</h4>
                         </div>
                         <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.aPct}%</p>
-                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-slate-100">
-                          <span className="text-slate-400">Volume: {projectSLA.ai.total}</span>
-                          <span className="text-blue-500">Met: {projectSLA.ai.met}</span>
+                        <div className="space-y-4 pt-2 border-t border-slate-100">
+                          {isManager ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total</label>
+                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none" value={projectSLA.ai.total} onChange={(e) => updateProjectMetric('ai', 'total', parseInt(e.target.value) || 0)} />
+                              </div>
+                              <div>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Met</label>
+                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none text-blue-600" value={projectSLA.ai.met} onChange={(e) => updateProjectMetric('ai', 'met', parseInt(e.target.value) || 0)} />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                              <span className="text-slate-400">Volume: {projectSLA.ai.total}</span>
+                              <span className="text-blue-500">Met: {projectSLA.ai.met}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Customer Loyalty Metrics */}
                   <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm relative overflow-hidden">
                     <div className="flex items-center gap-6 mb-10">
                       <div className="p-5 bg-purple-600 text-white rounded-[2rem] shadow-xl"><TrendingUp size={32} /></div>
@@ -422,30 +484,59 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <UserMinus className="text-purple-600" size={24} />
-                          <h4 className="font-black text-slate-700 text-xl">Retention</h4>
-                        </div>
-                        <div className="text-right">
+                      <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <UserMinus className="text-purple-600" size={24} />
+                            <h4 className="font-black text-slate-700 text-xl">Retention</h4>
+                          </div>
                           <p className="text-4xl font-black text-purple-600 tracking-tighter">{globalStats.retentionPct}%</p>
-                          <p className="text-[9px] font-black text-slate-400 uppercase mt-2">Data analysis active (Read Only)</p>
                         </div>
+                        {isManager ? (
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Start Count</label>
+                              <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-black outline-none" value={growthMetrics.retention.startCount} onChange={(e) => updateGrowthMetric('retention', 'startCount', parseInt(e.target.value) || 0)} />
+                            </div>
+                            <div>
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">End Count</label>
+                              <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-black outline-none" value={growthMetrics.retention.endCount} onChange={(e) => updateGrowthMetric('retention', 'endCount', parseInt(e.target.value) || 0)} />
+                            </div>
+                            <div>
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">New New</label>
+                              <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-black outline-none text-purple-600" value={growthMetrics.retention.newCount} onChange={(e) => updateGrowthMetric('retention', 'newCount', parseInt(e.target.value) || 0)} />
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[9px] font-black text-slate-400 uppercase text-center border-t border-slate-100 pt-3">Calculated from Month Start/End (Read Only)</p>
+                        )}
                       </div>
-                      <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <RefreshCcw className="text-orange-500" size={24} />
-                          <h4 className="font-black text-slate-700 text-xl">Return Rate</h4>
-                        </div>
-                        <div className="text-right">
+                      <div className="bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <RefreshCcw className="text-orange-500" size={24} />
+                            <h4 className="font-black text-slate-700 text-xl">Return Rate</h4>
+                          </div>
                           <p className="text-4xl font-black text-orange-500 tracking-tighter">{globalStats.returnRatePct}%</p>
-                          <p className="text-[9px] font-black text-slate-400 uppercase mt-2">Data analysis active (Read Only)</p>
                         </div>
+                        {isManager ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Returning Count</label>
+                              <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-black outline-none" value={growthMetrics.returnRate.returningCount} onChange={(e) => updateGrowthMetric('returnRate', 'returningCount', parseInt(e.target.value) || 0)} />
+                            </div>
+                            <div>
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total Customers</label>
+                              <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-black outline-none" value={growthMetrics.returnRate.totalCount} onChange={(e) => updateGrowthMetric('returnRate', 'totalCount', parseInt(e.target.value) || 0)} />
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[9px] font-black text-slate-400 uppercase text-center border-t border-slate-100 pt-3">Calculated from Repeat Volume (Read Only)</p>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Monthly Archiving Section */}
                   <div className="bg-indigo-600 p-12 rounded-[4rem] text-white shadow-xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 pointer-events-none group-hover:scale-110 transition-transform duration-500">
                       <Archive size={160} />
@@ -472,7 +563,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Right Column: Daily KPIs Sidebar */}
                 <div className="bg-slate-900 rounded-[3.5rem] p-10 text-white shadow-2xl space-y-12">
                   <div className="flex items-center gap-4 mb-4">
                     <ShieldCheck className="text-blue-500" size={28} />
@@ -486,8 +576,20 @@ const App: React.FC = () => {
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">CSAT Score ({globalStats.csatPct}%)</p>
                         <Smile size={18} className="text-emerald-400" />
                       </div>
-                      <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] flex flex-col justify-center h-24">
-                        <p className="text-xs font-black text-blue-400/60 uppercase italic">Secure KPI Vault</p>
+                      <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-32 transition-all ${isManager ? 'bg-white/10 border-blue-500/50' : 'bg-white/5 border-white/10'}`}>
+                        {isManager ? (
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Global CSAT Average (1-5)</label>
+                            <input 
+                              type="number" step="0.1" min="0" max="5"
+                              className="w-full bg-slate-800 text-3xl font-black text-emerald-400 outline-none p-2 rounded-xl border border-white/5"
+                              value={otherKPIs.csat.met}
+                              onChange={(e) => updateOtherKPI('csat', parseFloat(e.target.value) || 0)}
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-xs font-black text-blue-400/60 uppercase italic text-center">Secure KPI Vault</p>
+                        )}
                       </div>
                     </div>
 
@@ -497,14 +599,28 @@ const App: React.FC = () => {
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response Speed ({globalStats.avgSpeed} min)</p>
                         <Clock size={18} className="text-purple-400" />
                       </div>
-                      <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] flex flex-col justify-center h-24">
-                        <p className="text-xs font-black text-blue-400/60 uppercase italic">Secure KPI Vault</p>
+                      <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-32 transition-all ${isManager ? 'bg-white/10 border-blue-500/50' : 'bg-white/5 border-white/10'}`}>
+                        {isManager ? (
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Global Avg Response Time (Min)</label>
+                            <input 
+                              type="number" min="0"
+                              className="w-full bg-slate-800 text-3xl font-black text-purple-400 outline-none p-2 rounded-xl border border-white/5"
+                              value={otherKPIs.responseSpeed.met}
+                              onChange={(e) => updateOtherKPI('responseSpeed', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-xs font-black text-blue-400/60 uppercase italic text-center">Secure KPI Vault</p>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-10 border-t border-white/5 opacity-40 text-center">
-                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">Restricted Manager Data</p>
+                  <div className="pt-10 border-t border-white/5 text-center">
+                    <p className={`text-[9px] font-black uppercase tracking-[0.3em] transition-all ${isManager ? 'text-blue-500' : 'text-slate-500 opacity-40'}`}>
+                      {isManager ? 'Dashboard Editing Enabled' : 'Restricted Manager Data'}
+                    </p>
                   </div>
                 </div>
               </div>
