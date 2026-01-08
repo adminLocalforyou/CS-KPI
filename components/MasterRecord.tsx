@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
   Database, 
@@ -40,7 +39,6 @@ import {
   RefreshCcw,
   Smile,
   Timer,
-  // Fix: Add missing LayoutDashboard icon import
   LayoutDashboard
 } from 'lucide-react';
 import { EvaluationRecord, QARecord, TestSubmission, AssessmentRecord, MonthlySnapshotRecord } from '../types.ts';
@@ -52,6 +50,7 @@ interface MasterRecordProps {
   submissions: TestSubmission[];
   assessments: AssessmentRecord[];
   monthlySnapshots: MonthlySnapshotRecord[];
+  onClearAll: () => void;
 }
 
 type RecordType = 'performance' | 'qa' | 'exam' | 'monthly_snapshot';
@@ -67,7 +66,7 @@ interface GenericRecord {
   rawData: any;
 }
 
-const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, submissions, assessments, monthlySnapshots }) => {
+const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, submissions, assessments, monthlySnapshots, onClearAll }) => {
   const [filterType, setFilterType] = useState<'all' | RecordType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
@@ -622,7 +621,7 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-10 pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-10">
          <div className="bg-slate-900 rounded-[3rem] p-10 text-white space-y-6">
             <h3 className="text-xl font-black flex items-center gap-3">
                <TrendingUp className="text-indigo-400" /> Retention Trends
@@ -650,6 +649,16 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, sub
                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Validated Compliance Data</span>
             </div>
          </div>
+      </div>
+
+      {/* Danger Zone: System Clear */}
+      <div className="pt-20 pb-10 flex justify-center border-t border-slate-100">
+         <button 
+           onClick={onClearAll}
+           className="flex items-center gap-2 px-6 py-3 text-rose-300 hover:text-rose-600 transition-colors text-[10px] font-black uppercase tracking-widest opacity-50 hover:opacity-100"
+         >
+           <Trash2 size={14} /> System Reset Database (Test Mode)
+         </button>
       </div>
     </div>
   );

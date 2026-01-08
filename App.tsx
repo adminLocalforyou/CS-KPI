@@ -7,7 +7,8 @@ import {
   CalendarDays, ListFilter, Trophy, LayoutGrid, Camera, HeartHandshake, 
   ExternalLink, Search, LineChart, UserPlus, Smile, Timer, Trash2, Building2,
   Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, PenTool, Database,
-  ListChecks, Send, UserRound, KeyRound, SearchCode, ArrowLeftCircle, ArrowRight
+  ListChecks, Send, UserRound, KeyRound, SearchCode, ArrowLeftCircle, ArrowRight,
+  Archive
 } from 'lucide-react';
 import { TEAM_MEMBERS, INITIAL_EVALUATIONS } from './constants.tsx';
 import { EvaluationRecord, QARecord, TestSubmission, ProofRecord, PeerReviewRecord, GrowthMetrics, AssessmentRecord, MonthlySnapshotRecord } from './types.ts';
@@ -28,7 +29,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.0.5-STABLE";
+const APP_VERSION = "4.0.7-CLEANUP";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -115,10 +116,59 @@ const App: React.FC = () => {
     }
   };
 
+  const handleClearAllData = () => {
+    const passcode = prompt("⚠️ คำเตือน: ข้อมูลทั้งหมดจะถูกลบ! กรุณาใส่รหัสผ่าน 0000 เพื่อยืนยัน:");
+    if (passcode === '0000') {
+      if (confirm("ยืนยันการล้างฐานข้อมูลระบบทั้งหมด? (ไม่สามารถกู้คืนได้)")) {
+        setEvaluations(INITIAL_EVALUATIONS);
+        setQaRecords([]);
+        setProofRecords([]);
+        setPeerReviewRecords([]);
+        setAssessments([]);
+        setTestSubmissions([]);
+        setMonthlySnapshots([]);
+        setProjectSLA({ 
+          restaurant: { total: 0, met: 0, target: 10 }, 
+          massage: { total: 0, met: 0, target: 15 }, 
+          ai: { total: 0, met: 0, target: 3 } 
+        });
+        setOtherKPIs({ responseSpeed: { total: 0, met: 0 }, csat: { total: 0, met: 0 } });
+        setGrowthMetrics({
+          retention: { startCount: 0, endCount: 0, newCount: 0 },
+          returnRate: { returningCount: 0, totalCount: 0 }
+        });
+        localStorage.clear();
+        alert("ฐานข้อมูลถูกล้างเรียบร้อยแล้ว ระบบกำลังจะโหลดหน้าเว็บใหม่...");
+        window.location.reload();
+      }
+    } else {
+      alert("รหัสผ่านไม่ถูกต้อง!");
+    }
+  };
+
   const handleTakeTest = (id: string) => {
     setActiveTestId(id);
     setActiveTab('takeTest');
     window.location.hash = `test=${id}`;
+  };
+
+  const handleSaveSnapshot = () => {
+    const monthName = prompt("Enter Month & Year for this snapshot (e.g., February 2025):");
+    if (!monthName) return;
+
+    const newSnapshot: MonthlySnapshotRecord = {
+      id: `snap-${Date.now()}`,
+      type: 'monthly_snapshot',
+      date: new Date().toISOString().split('T')[0],
+      monthYear: monthName,
+      projectSLA: JSON.parse(JSON.stringify(projectSLA)),
+      otherKPIs: JSON.parse(JSON.stringify(otherKPIs)),
+      growthMetrics: JSON.parse(JSON.stringify(growthMetrics)),
+      overallScore: globalStats.overallPerf
+    };
+
+    setMonthlySnapshots(prev => [newSnapshot, ...prev]);
+    alert(`Snapshot for ${monthName} (including Daily KPIs & SLA) saved to Master Record!`);
   };
 
   const verifyPasscode = () => {
@@ -383,6 +433,32 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Monthly Archiving Section */}
+                  <div className="bg-indigo-600 p-12 rounded-[4rem] text-white shadow-xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                      <Archive size={160} />
+                    </div>
+                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                      <div className="space-y-2">
+                        <h3 className="text-3xl font-black tracking-tight">Finalize & Save Report</h3>
+                        <p className="text-indigo-100 font-bold text-sm">บันทึกตัวเลขคำนวณของเดือนนี้ (SLA & Daily KPIs) ลงใน Master Record ถาวร</p>
+                      </div>
+                      {isManager ? (
+                        <button 
+                          onClick={handleSaveSnapshot}
+                          className="bg-white text-indigo-600 px-10 py-5 rounded-[2.5rem] font-black uppercase tracking-widest text-sm shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
+                        >
+                          <Save size={20} /> Save Monthly Snapshot
+                        </button>
+                      ) : (
+                        <div className="bg-indigo-700/50 px-6 py-4 rounded-3xl border border-indigo-400/30 flex items-center gap-3">
+                           <Lock size={18} />
+                           <span className="text-xs font-black uppercase tracking-widest">Manager Access Required</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Right Column: Daily KPIs Sidebar */}
@@ -416,8 +492,8 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="pt-10 border-t border-white/5 opacity-40">
-                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-center text-slate-500">Restricted Manager Data</p>
+                  <div className="pt-10 border-t border-white/5 opacity-40 text-center">
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">Restricted Manager Data</p>
                   </div>
                 </div>
               </div>
@@ -490,7 +566,7 @@ const App: React.FC = () => {
 
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
           {activeTab === 'staffHub' && <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} testSubmissions={testSubmissions} />}
-          {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} monthlySnapshots={monthlySnapshots} />}
+          {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={testSubmissions} assessments={assessments} monthlySnapshots={monthlySnapshots} onClearAll={handleClearAllData} />}
           {activeTab === 'publicAnswers' && <PublicAnswers assessments={assessments} submissions={testSubmissions} />}
         </div>
       </main>
