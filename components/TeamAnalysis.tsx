@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   BrainCircuit, 
@@ -20,8 +19,12 @@ import {
 import { GoogleGenAI, Type } from "@google/genai";
 import { EvaluationRecord, QARecord } from '../types.ts';
 
-// Fix: Use the global AIStudio type to avoid conflict with existing property declarations.
+// ประกาศ Type เพื่อป้องกัน Error ตอน Compile
 declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
   interface Window {
     aistudio?: AIStudio;
   }
@@ -68,23 +71,31 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
     setNeedsKey(false);
 
     try {
-      // Defensive Check: ตรวจสอบ window.aistudio ก่อนเรียกใช้
-      if (window.aistudio) {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasKey && !process.env.API_KEY) {
-          setNeedsKey(true);
+      // ขั้นตอนที่ 1: ตรวจสอบ API Key (สำคัญมากสำหรับ Deployment)
+      const envKey = process.env.API_KEY;
+      let finalKey = envKey;
+
+      // ถ้าไม่มี Key ใน Env ให้ลองหาจาก window.aistudio (สำหรับ Development Mode)
+      if (!finalKey) {
+        if (window.aistudio) {
+          const hasSelected = await window.aistudio.hasSelectedApiKey();
+          if (!hasSelected) {
+            setNeedsKey(true);
+            setLoading(false);
+            return;
+          }
+          // ถ้าเลือกแล้ว Key จะถูกฉีดเข้า process.env.API_KEY อัตโนมัติในรอบถัดไป
+          finalKey = process.env.API_KEY;
+        } else {
+          // ถ้าไม่มีทั้งคู่ แสดงว่าไม่ได้ตั้งค่า Key ในหน้า Dashboard ของ Deployment
+          setError("ไม่พบ API Key ในระบบ (API_KEY) กรุณาตรวจสอบการตั้งค่า Environment Variables");
           setLoading(false);
           return;
         }
-      } else if (!process.env.API_KEY) {
-        // กรณีไม่มี window.aistudio และไม่มี API_KEY ใน env
-        setError("ไม่พบ API Key ในระบบ กรุณาตั้งค่า API Key เพื่อใช้งานส่วนการวิเคราะห์");
-        setLoading(false);
-        return;
       }
 
-      // CRITICAL: Always create a new GoogleGenAI instance right before making an API call to ensure it uses the most up-to-date API key.
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // สร้าง Instance ของ AI ด้วย Key ที่หาได้
+      const ai = new GoogleGenAI({ apiKey: finalKey });
       
       const teamContext = teamPerformance.map(p => {
         const staffEvals = evaluations.filter(e => e.staffId === p.id);
@@ -101,14 +112,14 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
       });
 
       const prompt = `
-        Analyze this Customer Support team performance.
+        Analyze this Customer Support team performance based on the provided data.
         Data Context: ${JSON.stringify(teamContext)}
         
         Guidelines:
-        - Analyze workload vs score.
-        - Flag bottlenecks (response time > 10 min).
-        - Thai language output.
-        - JSON format strictly.
+        - Analyze workload balance vs performance scores.
+        - Identify potential bottlenecks or training needs.
+        - Output language: Thai (ภาษาไทย).
+        - Format: JSON strictly following the schema.
       `;
 
       const response = await ai.models.generateContent({
@@ -140,17 +151,15 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
         }
       });
 
-      // Extract text directly from the response property as per guidelines.
-      if (!response.text) throw new Error("AI returned empty response");
+      if (!response.text) throw new Error("AI ไม่ส่งข้อมูลการวิเคราะห์กลับมา");
       
       const result = JSON.parse(response.text.trim());
       setAnalysis(result);
     } catch (err: any) {
       console.error("AI Analysis failed:", err);
-      // Handle the case where the API key might be invalid or project not found
-      if (err.message && err.message.includes("Requested entity was not found")) {
-        setNeedsKey(true);
-        setError("API Key ของคุณไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึงโมเดลนี้ กรุณาเลือกคีย์ใหม่ครับ");
+      // จัดการเคส Key ผิดหรือไม่มีสิทธิ์
+      if (err.message && (err.message.includes("404") || err.message.includes("not found") || err.message.includes("API_KEY"))) {
+        setError("API Key ของคุณอาจไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง Gemini 3 Pro กรุณาตรวจสอบ Key ในหน้า Env ของคุณครับ");
       } else {
         setError("AI ประมวลผลล้มเหลว: " + (err.message || "Unknown error"));
       }
@@ -161,10 +170,10 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
 
   const handleSelectKey = async () => {
     if (window.aistudio) {
-      // Trigger key selection dialog
       await window.aistudio.openSelectKey();
-      // Assume success and proceed immediately to avoid race condition as per guidelines
       runAnalysis();
+    } else {
+      alert("กรุณาใส่ API_KEY ในหน้าการตั้งค่า Environment Variables ของโปรเจกต์คุณครับ");
     }
   };
 
@@ -219,18 +228,16 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
               <Key size={40} />
            </div>
            <div className="space-y-3">
-              <h3 className="text-2xl font-black text-amber-900">API Key Selection Required</h3>
+              <h3 className="text-2xl font-black text-amber-900">API Key Required</h3>
               <p className="text-amber-700 font-bold text-sm max-w-md mx-auto leading-relaxed">
-                สำหรับการเข้าถึงโมเดลวิเคราะห์ระดับสูง กรุณาคลิกเพื่อยืนยันการใช้ API Key ของคุณครับ
-                <br />
-                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline text-amber-900 mt-2 block">Billing Documentation</a>
+                ไม่พบ API Key ใน Environment Variables กรุณาตั้งค่าคีย์ "API_KEY" ในระบบ Deployment ของคุณครับ
               </p>
            </div>
            <button 
              onClick={handleSelectKey}
              className="px-10 py-5 bg-amber-600 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-amber-700 active:scale-95 transition-all"
            >
-             Connect Gemini API Key
+             Setup / Connect API Key
            </button>
         </div>
       ) : error ? (
@@ -250,7 +257,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
           </div>
           <div className="text-center space-y-2">
             <p className="text-slate-800 font-black uppercase tracking-[0.3em] text-xs">Correlating Team Datasets</p>
-            <p className="text-slate-400 text-[10px] font-bold">Gemini 3 Pro is thinking...</p>
+            <p className="text-slate-400 text-[10px] font-bold">Gemini 3 Pro is processing...</p>
           </div>
         </div>
       ) : analysis ? (
@@ -289,7 +296,7 @@ const TeamAnalysis: React.FC<TeamAnalysisProps> = ({ teamPerformance, evaluation
                 <TrendingUp size={28} className="text-indigo-400" /> Executive Summary
               </h4>
               <p className="text-indigo-100 font-bold italic leading-relaxed text-lg">
-                "ภาพรวมการทำงานในสัปดาห์นี้ชี้ให้เห็นถึงความพร้อมของทีมในระดับสูง แต่ต้องระวังเรื่อง Workload Balance เพื่อลดความเสี่ยงในการเกิดความผิดพลาดครับ"
+                "ภาพรวมการทำงานชี้ให้เห็นว่าทีมรักษามาตรฐานได้ดี แต่ควรเน้นการบาลานซ์ภาระงานให้เท่าเทียมกันมากขึ้นครับ"
               </p>
             </div>
           </div>
