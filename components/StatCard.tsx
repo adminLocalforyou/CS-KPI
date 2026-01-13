@@ -6,7 +6,7 @@ interface StatCardProps {
   value: string | number;
   sub: string;
   icon: LucideIcon;
-  color: 'blue' | 'purple' | 'emerald' | 'orange';
+  color: 'blue' | 'purple' | 'emerald' | 'orange' | 'indigo';
 }
 
 const StatCard: React.FC<StatCardProps> = ({ label, value, sub, icon: Icon, color }) => {
@@ -15,20 +15,23 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, sub, icon: Icon, colo
     purple: 'bg-purple-50 text-purple-600',
     emerald: 'bg-emerald-50 text-emerald-600',
     orange: 'bg-orange-50 text-orange-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
   };
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col justify-between">
-      <div className="flex items-center gap-4 mb-4">
-        <div className={`p-3 rounded-2xl flex-shrink-0 ${colorClasses[color]}`}>
+    <div className="group bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col justify-between">
+      <div className="flex items-start justify-between mb-6">
+        <div className={`p-4 rounded-2xl flex-shrink-0 transition-transform group-hover:scale-110 duration-300 ${colorClasses[color]}`}>
           <Icon size={24} />
         </div>
-        <div className="min-w-0">
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest truncate">{label}</p>
-          <h4 className="text-2xl font-black text-slate-900 truncate whitespace-nowrap">{value}</h4>
+        <div className="text-right">
+          <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-1">{label}</p>
+          <h4 className="text-3xl font-black text-slate-900 tracking-tighter">{value}</h4>
         </div>
       </div>
-      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{sub}</p>
+      <div className="pt-4 border-t border-slate-50">
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight opacity-70 group-hover:opacity-100 transition-opacity">{sub}</p>
+      </div>
     </div>
   );
 };

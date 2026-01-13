@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   BrainCircuit, 
@@ -17,15 +18,13 @@ import {
 import { GoogleGenAI, Type } from "@google/genai";
 import { EvaluationRecord, QARecord } from '../types.ts';
 
-// Fix: Define AIStudio and use it to type window.aistudio to avoid conflicts with global declarations.
-interface AIStudio {
-  hasSelectedApiKey: () => Promise<boolean>;
-  openSelectKey: () => Promise<void>;
-}
-
+// Fix: Remove named interface and define inline to avoid naming conflicts with global environment.
 declare global {
   interface Window {
-    readonly aistudio: AIStudio;
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
   }
 }
 

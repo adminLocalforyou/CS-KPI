@@ -29,7 +29,7 @@ import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 
-const APP_VERSION = "4.4.0-PEER-LINK-FIX";
+const APP_VERSION = "4.5.0-TRUE-METRICS";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -232,7 +232,18 @@ const App: React.FC = () => {
       ? teamPerformanceData.reduce((a, b) => a + b.score, 0) / teamPerformanceData.length 
       : 0;
 
-    const overall = Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + returnRatePct) / 6);
+    // True Global Exam Avg
+    const gradedExams = testSubmissions.filter(s => s.isGraded);
+    const globalExamAvg = gradedExams.length > 0 
+      ? Math.round(gradedExams.reduce((a, b) => a + ((b.autoScore + b.manualScore) / b.totalPossiblePoints) * 100, 0) / gradedExams.length)
+      : 0;
+
+    // True Global QA Avg
+    const globalQaAvg = qaRecords.length > 0
+      ? Math.round(qaRecords.reduce((a, b) => a + b.overallPercentage, 0) / qaRecords.length)
+      : 0;
+
+    const overall = Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + returnRatePct + globalExamAvg + globalQaAvg) / 8);
 
     return { 
       overallPerf: isNaN(overall) ? 0 : overall, 
@@ -242,11 +253,13 @@ const App: React.FC = () => {
       avgSpeed: avgMinutes,
       retentionPct: Math.max(0, Math.round(retentionPct)),
       returnRatePct: Math.round(returnRatePct),
+      globalExamAvg,
+      globalQaAvg,
       rPct: Math.round(rPct), 
       mPct: Math.round(mPct), 
       aPct: Math.round(aPct)
     };
-  }, [projectSLA, otherKPIs, growthMetrics, teamPerformanceData, evaluations]);
+  }, [projectSLA, otherKPIs, growthMetrics, teamPerformanceData, evaluations, testSubmissions, qaRecords]);
 
   const updateProjectMetric = (project: keyof typeof projectSLA, field: 'total' | 'met', val: number) => {
     setProjectSLA(prev => ({
@@ -300,17 +313,17 @@ const App: React.FC = () => {
             <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20"><Target className="text-white" size={24} /></div>
             {isSidebarOpen && <h1 className="text-white font-black text-lg tracking-tight">CS Portal</h1>}
           </div>
-          <nav className="flex-1 mt-6 px-3 space-y-6 overflow-y-auto custom-scrollbar">
+          <nav className="flex-1 mt-6 px-3 space-y-2 overflow-y-auto custom-scrollbar">
             <div className="space-y-1">
-              {isSidebarOpen && <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Public Space</p>}
-              <SidebarItem id="dashboard" label="Overview" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('dashboard')} />
+              {isSidebarOpen && <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4 ml-4">Public Area</p>}
+              <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('dashboard')} />
               <SidebarItem id="publicStaffAnalysis" label="My Performance" icon={UserRound} active={activeTab === 'publicStaffAnalysis'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicStaffAnalysis')} />
               <SidebarItem id="staffHub" label="Public Hub" icon={Trophy} active={activeTab === 'staffHub'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('staffHub')} />
               <SidebarItem id="publicAnswers" label="Exam Review" icon={ListChecks} active={activeTab === 'publicAnswers'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicAnswers')} />
             </div>
-            <div className="h-px bg-slate-800/50 mx-4"></div>
+            <div className="h-px bg-slate-800/50 mx-4 my-4"></div>
             <div className="space-y-1">
-              {isSidebarOpen && <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-4">Manager Deck</p>}
+              {isSidebarOpen && <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4 ml-4">Management</p>}
               <SidebarItem id="masterRecord" label="Master Record" icon={Database} active={activeTab === 'masterRecord'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('masterRecord')} isLocked={!isManager} />
               <SidebarItem id="evaluate" label="Performance Log" icon={PlusCircle} active={activeTab === 'evaluate'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('evaluate')} isLocked={!isManager} />
               <SidebarItem id="qa" label="QA Checks" icon={FileSearch} active={activeTab === 'qa'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('qa')} isLocked={!isManager} />
@@ -323,7 +336,7 @@ const App: React.FC = () => {
             </div>
           </nav>
           <div className="p-4 border-t border-slate-800 space-y-2">
-            {isSidebarOpen && <p className="text-[9px] font-black text-slate-600 text-center uppercase mb-2">Version {APP_VERSION}</p>}
+            {isSidebarOpen && <p className="text-[9px] font-black text-slate-700 text-center uppercase mb-2">Build {APP_VERSION}</p>}
             {isManager && isSidebarOpen && (
               <button onClick={() => setIsManager(false)} className="w-full flex items-center gap-3 p-3 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest">
                 <LogOut size={16} /> Logout Manager
@@ -357,14 +370,15 @@ const App: React.FC = () => {
         <div className={(activeTab === 'takeTest' || activeTab === 'publicPeerReview') ? '' : 'p-8 max-w-7xl mx-auto w-full pb-32'}>
           {activeTab === 'dashboard' && (
             <div className="space-y-12 animate-in fade-in duration-700">
-              {/* ... existing dashboard code ... */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <StatCard label="Overall Perf" value={`${globalStats.overallPerf}%`} sub="Global Index" icon={Activity} color="blue" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard label="Overall Index" value={`${globalStats.overallPerf}%`} sub="Global Weighted Avg" icon={Activity} color="blue" />
+                <StatCard label="Team Exam Avg" value={`${globalStats.globalExamAvg}%`} sub="History Accuracy" icon={GraduationCap} color="emerald" />
+                <StatCard label="Team QA Avg" value={`${globalStats.globalQaAvg}%`} sub="Quality Consistency" icon={FileSearch} color="indigo" />
+                <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="Building Volume Met" icon={Zap} color="orange" />
                 <StatCard label="Retention" value={`${globalStats.retentionPct}%`} sub="Customer Loyalty" icon={UserMinus} color="purple" />
                 <StatCard label="Return Rate" value={`${globalStats.returnRatePct}%`} sub="Repeat Business" icon={RefreshCcw} color="orange" />
-                <StatCard label="CSAT Index" value={`${globalStats.csatAvg.toFixed(1)} / 5`} sub="Satisfaction" icon={Smile} color="emerald" />
-                <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="Building Met" icon={Zap} color="orange" />
-                <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="Daily Speed" icon={Clock} color="purple" />
+                <StatCard label="CSAT Index" value={`${globalStats.csatAvg.toFixed(1)} / 5`} sub="Satisfaction Index" icon={Smile} color="emerald" />
+                <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="Daily Operational Speed" icon={Clock} color="purple" />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
@@ -389,7 +403,7 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
+                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6 group hover:bg-white hover:shadow-xl transition-all duration-300">
                         <div className="flex items-center gap-4">
                           <div className="p-4 bg-rose-50 text-rose-500 rounded-[2rem] shadow-sm"><Store size={24} /></div>
                           <h4 className="font-black text-slate-700">Restaurant</h4>
@@ -415,7 +429,7 @@ const App: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
+                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6 group hover:bg-white hover:shadow-xl transition-all duration-300">
                         <div className="flex items-center gap-4">
                           <div className="p-4 bg-emerald-50 text-emerald-500 rounded-[2rem] shadow-sm"><Stethoscope size={24} /></div>
                           <h4 className="font-black text-slate-700">Massage</h4>
@@ -441,7 +455,7 @@ const App: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
+                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6 group hover:bg-white hover:shadow-xl transition-all duration-300">
                         <div className="flex items-center gap-4">
                           <div className="p-4 bg-blue-50 text-blue-500 rounded-[2rem] shadow-sm"><Bot size={24} /></div>
                           <h4 className="font-black text-slate-700 leading-tight">AI<br/>Receptionist</h4>
@@ -536,7 +550,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-8">
-                  <div className="bg-slate-900 rounded-[3.5rem] p-8 text-white shadow-2xl space-y-8">
+                  <div className="bg-[#0F172A] rounded-[3.5rem] p-8 text-white shadow-2xl space-y-8">
                     <div className="flex items-center gap-4 mb-2">
                       <ShieldCheck className="text-blue-500" size={24} />
                       <h3 className="text-xl font-black tracking-tight uppercase">Daily KPIs</h3>
@@ -544,10 +558,10 @@ const App: React.FC = () => {
                     <div className="space-y-8">
                       <div className="space-y-3">
                         <div className="flex justify-between items-center px-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">CSAT Score ({globalStats.csatPct}%)</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">CSAT Score ({globalStats.csatPct}%)</p>
                           <Smile size={16} className="text-emerald-400" />
                         </div>
-                        <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-28 transition-all ${isManager ? 'bg-white/10 border-blue-500/50' : 'bg-white/5 border-white/10'}`}>
+                        <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-28 transition-all ${isManager ? 'bg-white/5 border-blue-500/50' : 'bg-white/5 border-white/5'}`}>
                           {isManager ? (
                             <div className="space-y-1">
                               <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Global CSAT Average (1-5)</label>
@@ -565,10 +579,10 @@ const App: React.FC = () => {
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center px-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response Speed</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Response Speed</p>
                           <Clock size={16} className="text-purple-400" />
                         </div>
-                        <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-28 transition-all ${isManager ? 'bg-white/10 border-blue-500/50' : 'bg-white/5 border-white/10'}`}>
+                        <div className={`border p-6 rounded-[2rem] flex flex-col justify-center h-28 transition-all ${isManager ? 'bg-white/5 border-blue-500/50' : 'bg-white/5 border-white/5'}`}>
                           {isManager ? (
                             <div className="space-y-1">
                               <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Global Avg Speed (Min)</label>
@@ -586,8 +600,8 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     <div className="pt-6 border-t border-white/5 text-center">
-                      <p className={`text-[8px] font-black uppercase tracking-[0.2em] transition-all ${isManager ? 'text-blue-500' : 'text-slate-500 opacity-40'}`}>
-                        {isManager ? 'Dashboard Editing Enabled' : 'Restricted Manager Data'}
+                      <p className={`text-[8px] font-black uppercase tracking-[0.2em] transition-all ${isManager ? 'text-blue-500' : 'text-slate-600 opacity-40'}`}>
+                        {isManager ? 'Dashboard Editing Enabled' : 'Secure KPI Vault'}
                       </p>
                     </div>
                   </div>
