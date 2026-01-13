@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer
@@ -60,9 +61,14 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
   }, [memberEvals]);
 
   const peerReviewAvg = useMemo(() => {
-    if (memberPeerReviews.length === 0) return 0;
-    const sum = memberPeerReviews.reduce((acc, curr) => acc + (curr.teamworkScore + curr.helpfulnessScore + curr.communicationScore) / 3, 0);
-    return Math.round(sum / memberPeerReviews.length);
+    // ปรับ Logic ตามโจทย์: หากไม่มีคนประเมิน ให้เริ่มต้นที่ 100%
+    if (memberPeerReviews.length === 0) return 100;
+    
+    // คำนวณค่าเฉลี่ยจากคะแนนเต็ม 5 (คะแนนรวมของทั้ง 3 หัวข้อ)
+    const sumActual = memberPeerReviews.reduce((acc, curr) => acc + (curr.teamworkScore + curr.helpfulnessScore + curr.communicationScore), 0);
+    const sumPossible = memberPeerReviews.length * 15; // 3 หัวข้อ * 5 คะแนนเต็ม
+    
+    return Math.round((sumActual / sumPossible) * 100);
   }, [memberPeerReviews]);
 
   const averageExamScore = useMemo(() => {
@@ -140,7 +146,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
             <h4 className="text-5xl font-black tracking-tighter">{latestEval?.responseTimeMin || 0}<span className="text-blue-200 text-2xl font-black ml-1">min</span></h4>
             <p className="text-xs text-blue-100 font-medium">Reflects daily operational speed.</p>
          </div>
-         {/* NEW: Avg Exam Score Card */}
          <div className="bg-emerald-600 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
                <p className="text-[10px] font-black text-emerald-200 uppercase tracking-widest">True Avg Exam</p>
@@ -149,7 +154,6 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
             <h4 className="text-5xl font-black tracking-tighter">{averageExamScore}<span className="text-emerald-200 text-2xl font-black ml-1">%</span></h4>
             <p className="text-xs text-emerald-100 font-medium">Mean of all graded assessments.</p>
          </div>
-         {/* NEW: Avg QA Score Card */}
          <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
                <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">True Avg QA</p>

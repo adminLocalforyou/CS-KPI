@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, User, PlusCircle, TrendingUp, Clock, MessageSquare, 
@@ -652,7 +653,10 @@ const App: React.FC = () => {
           {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([p, ...proofRecords])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
           
           {activeTab === 'peerReview' && (
-            <PeerReviewCollector onReceiveReview={(r) => { setPeerReviewRecords([r, ...peerReviewRecords]); setActiveTab('dashboard'); }} />
+            <PeerReviewCollector 
+              onReceiveReview={(r) => { setPeerReviewRecords([r, ...peerReviewRecords]); setActiveTab('dashboard'); }} 
+              reviews={peerReviewRecords} 
+            />
           )}
 
           {activeTab === 'publicPeerReview' && (
@@ -665,6 +669,7 @@ const App: React.FC = () => {
                   setActiveTab('dashboard'); 
                 }} 
                 forceShowForm={true}
+                reviews={[]}
               />
             </div>
           )}
