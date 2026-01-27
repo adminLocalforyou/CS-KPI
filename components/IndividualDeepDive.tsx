@@ -1,12 +1,13 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
 } from 'recharts';
 import { EvaluationRecord, ProofRecord, PeerReviewRecord, TestSubmission, QARecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
 import { 
-  Target, Activity, HeartHandshake, Camera, Clock, MessageCircle, ShieldCheck, Rocket, Zap, GraduationCap, FileCheck, Lock, KeyRound, AlertCircle, CheckCircle2, FileSearch, TrendingUp
+  Target, Activity, HeartHandshake, Camera, Clock, MessageCircle, ShieldCheck, Rocket, Zap, GraduationCap, FileCheck, Lock, KeyRound, AlertCircle, CheckCircle2, FileSearch, TrendingUp, PhoneIncoming, PhoneOutgoing, BarChart3
 } from 'lucide-react';
 
 interface IndividualDeepDiveProps {
@@ -54,6 +55,15 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
     ];
   }, [memberEvals]);
 
+  const workloadChartData = useMemo(() => {
+    if (!latestEval) return [];
+    return [
+      { name: 'Inbound', value: latestEval.incomingCalls || 0, color: '#6366f1' },
+      { name: 'Outbound', value: latestEval.outgoingCalls || 0, color: '#3b82f6' },
+      { name: 'Chats', value: latestEval.totalChats || 0, color: '#10b981' },
+    ];
+  }, [latestEval]);
+
   const overallIndividualScore = useMemo(() => {
     if (memberEvals.length === 0) return 0;
     const allScores = memberEvals.map(e => (e.communicationScore + e.speedScore + e.followUpScore + e.clarityScore + e.processCompliance + e.onboardingQuality) / 6);
@@ -61,13 +71,9 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
   }, [memberEvals]);
 
   const peerReviewAvg = useMemo(() => {
-    // ปรับ Logic ตามโจทย์: หากไม่มีคนประเมิน ให้เริ่มต้นที่ 100%
     if (memberPeerReviews.length === 0) return 100;
-    
-    // คำนวณค่าเฉลี่ยจากคะแนนเต็ม 5 (คะแนนรวมของทั้ง 3 หัวข้อ)
     const sumActual = memberPeerReviews.reduce((acc, curr) => acc + (curr.teamworkScore + curr.helpfulnessScore + curr.communicationScore), 0);
-    const sumPossible = memberPeerReviews.length * 15; // 3 หัวข้อ * 5 คะแนนเต็ม
-    
+    const sumPossible = memberPeerReviews.length * 15;
     return Math.round((sumActual / sumPossible) * 100);
   }, [memberPeerReviews]);
 
@@ -165,6 +171,62 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Workload Bar Chart Section */}
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-8">
+             <h3 className="font-black text-xl text-slate-800 flex items-center gap-2">
+               <BarChart3 className="text-indigo-600" /> Workload Volume
+             </h3>
+             <span className="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-full text-slate-400 uppercase tracking-widest">Current Month</span>
+          </div>
+          <div className="h-[250px] w-full mt-auto">
+            {workloadChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={workloadChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}}
+                    dy={10}
+                  />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
+                  <Tooltip 
+                    cursor={{fill: '#f8fafc'}}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                    itemStyle={{ fontWeight: 800, fontSize: '12px' }}
+                  />
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={40}>
+                    {workloadChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
+                 <Activity size={32} />
+                 <p className="text-[10px] font-black uppercase tracking-widest">No Workload Data</p>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-2 mt-8">
+             <div className="text-center">
+                <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Inbound</p>
+                <p className="text-sm font-black text-indigo-600">{latestEval?.incomingCalls || 0}</p>
+             </div>
+             <div className="text-center border-x border-slate-50">
+                <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Outbound</p>
+                <p className="text-sm font-black text-blue-600">{latestEval?.outgoingCalls || 0}</p>
+             </div>
+             <div className="text-center">
+                <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Chats</p>
+                <p className="text-sm font-black text-emerald-600">{latestEval?.totalChats || 0}</p>
+             </div>
+          </div>
+        </div>
+
         <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
           <h3 className="font-black text-xl text-slate-800 mb-8 flex items-center gap-2"><Target className="text-blue-500" /> Competency Radar</h3>
           <div className="h-[300px] w-full">
@@ -178,40 +240,25 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
           </div>
         </div>
 
-        {mode === 'manager' && (
-          <>
-            <div className="bg-indigo-900 p-10 rounded-[3rem] text-white shadow-xl flex flex-col justify-between">
-               <div>
-                  <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">360° Peer Feedback</p>
-                  <h3 className="text-3xl font-black leading-tight">Team Perception</h3>
-               </div>
-               <div className="flex items-center gap-6">
-                  <div className="text-6xl font-black">{peerReviewAvg}%</div>
-                  <div className="flex-1 space-y-2">
-                     <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-400" style={{width: `${peerReviewAvg}%`}}></div>
-                     </div>
-                  </div>
-               </div>
-            </div>
+        <div className="bg-indigo-900 p-10 rounded-[3rem] text-white shadow-xl flex flex-col justify-between">
+           <div>
+              <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">360° Peer Feedback</p>
+              <h3 className="text-3xl font-black leading-tight">Team Perception</h3>
+           </div>
+           <div className="flex items-center gap-6">
+              <div className="text-6xl font-black">{peerReviewAvg}%</div>
+              <div className="flex-1 space-y-2">
+                 <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-400" style={{width: `${peerReviewAvg}%`}}></div>
+                 </div>
+              </div>
+           </div>
+        </div>
+      </div>
 
-            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between">
-               <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-amber-50 text-amber-500 rounded-2xl"><Camera size={20} /></div>
-                    <h3 className="text-xl font-black text-slate-800">Proof History</h3>
-                  </div>
-               </div>
-               <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
-                  <span className="text-3xl font-black text-slate-800">{memberProofs.length}</span>
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Internal Records</span>
-               </div>
-            </div>
-          </>
-        )}
-
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {mode === 'public' && (
-          <div className="lg:col-span-2 space-y-8">
+          <div className="space-y-8">
             {!isUnlocked ? (
               <div className="h-full flex flex-col items-center justify-center p-12 bg-slate-900 rounded-[3rem] border border-slate-800 shadow-2xl text-center">
                 <div className="w-20 h-20 bg-blue-600 text-white rounded-[2rem] flex items-center justify-center shadow-xl mb-6">
@@ -297,34 +344,47 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
           </div>
         )}
 
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col">
+           <div className="flex items-center gap-3 mb-8">
+             <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl"><GraduationCap size={20} /></div>
+             <h3 className="text-xl font-black text-slate-800">Accuracy History</h3>
+           </div>
+           <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
+              {memberSubmissions.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-3 opacity-50 py-10">
+                   <FileCheck size={48} />
+                   <p className="text-[10px] font-black uppercase tracking-widest">No Graded Exams</p>
+                </div>
+              ) : (
+                memberSubmissions.map(sub => {
+                  const scorePct = Math.round(((sub.autoScore + sub.manualScore) / sub.totalPossiblePoints) * 100);
+                  return (
+                    <div key={sub.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                       <div className="space-y-1">
+                          <p className="font-black text-slate-800 text-sm line-clamp-1">{sub.testTitle}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">{sub.date}</p>
+                       </div>
+                       <p className={`text-xl font-black ${scorePct >= 80 ? 'text-emerald-600' : 'text-blue-600'}`}>{scorePct}%</p>
+                    </div>
+                  );
+                })
+              )}
+           </div>
+        </div>
+        
         {mode === 'manager' && (
-          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col">
-             <div className="flex items-center gap-3 mb-8">
-               <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl"><GraduationCap size={20} /></div>
-               <h3 className="text-xl font-black text-slate-800">Accuracy History</h3>
-             </div>
-             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
-                {memberSubmissions.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-3 opacity-50 py-10">
-                     <FileCheck size={48} />
-                     <p className="text-[10px] font-black uppercase tracking-widest">No Graded Exams</p>
-                  </div>
-                ) : (
-                  memberSubmissions.map(sub => {
-                    const scorePct = Math.round(((sub.autoScore + sub.manualScore) / sub.totalPossiblePoints) * 100);
-                    return (
-                      <div key={sub.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                         <div className="space-y-1">
-                            <p className="font-black text-slate-800 text-sm line-clamp-1">{sub.testTitle}</p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase">{sub.date}</p>
-                         </div>
-                         <p className={`text-xl font-black ${scorePct >= 80 ? 'text-emerald-600' : 'text-blue-600'}`}>{scorePct}%</p>
-                      </div>
-                    );
-                  })
-                )}
-             </div>
-          </div>
+           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between">
+              <div className="space-y-4">
+                 <div className="flex items-center gap-3">
+                   <div className="p-3 bg-amber-50 text-amber-500 rounded-2xl"><Camera size={20} /></div>
+                   <h3 className="text-xl font-black text-slate-800">Proof History</h3>
+                 </div>
+              </div>
+              <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+                 <span className="text-3xl font-black text-slate-800">{memberProofs.length}</span>
+                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Internal Records</span>
+              </div>
+           </div>
         )}
       </div>
     </div>

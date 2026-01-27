@@ -29,8 +29,9 @@ import TakeTest from './components/TakeTest.tsx';
 import GradingDesk from './components/GradingDesk.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
+import WorkloadAnalytics from './components/WorkloadAnalytics.tsx';
 
-const APP_VERSION = "4.5.0-TRUE-METRICS";
+const APP_VERSION = "4.6.0-WORKLOAD-INTEL";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -42,7 +43,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis' | 'team' | 'publicPeerReview'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'individual' | 'qa' | 'staffHub' | 'proof' | 'peerReview' | 'assessment' | 'grading' | 'takeTest' | 'masterRecord' | 'publicAnswers' | 'publicStaffAnalysis' | 'team' | 'publicPeerReview' | 'workload'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
@@ -318,6 +319,7 @@ const App: React.FC = () => {
             <div className="space-y-1">
               {isSidebarOpen && <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4 ml-4">Public Area</p>}
               <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('dashboard')} />
+              <SidebarItem id="workload" label="Workload Analytics" icon={BarChart3} active={activeTab === 'workload'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('workload')} />
               <SidebarItem id="publicStaffAnalysis" label="My Performance" icon={UserRound} active={activeTab === 'publicStaffAnalysis'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicStaffAnalysis')} />
               <SidebarItem id="staffHub" label="Public Hub" icon={Trophy} active={activeTab === 'staffHub'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('staffHub')} />
               <SidebarItem id="publicAnswers" label="Exam Review" icon={ListChecks} active={activeTab === 'publicAnswers'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicAnswers')} />
@@ -675,6 +677,7 @@ const App: React.FC = () => {
           )}
 
           {activeTab === 'team' && <TeamAnalysis teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />}
+          {activeTab === 'workload' && <WorkloadAnalytics evaluations={evaluations} isManager={isManager} />}
           
           {activeTab === 'publicStaffAnalysis' && !publicActiveStaffId && (
             <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">

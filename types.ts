@@ -8,6 +8,22 @@ export interface StaffMember {
 export type ProjectSubCategory = 'Restaurant' | 'Massage' | 'AI Receptionist';
 export type QuestionType = 'choice' | 'written';
 
+export interface TaskConfig {
+  id: string;
+  name: string;
+  minutes: number;
+}
+
+export interface WorkHistoryRecord {
+  id: string;
+  description: string;
+  owner: string;
+  date: string;
+  category: string;
+  minutes: number;
+  uploadedAt: string;
+}
+
 export interface GrowthMetrics {
   retention: {
     startCount: number;
@@ -41,20 +57,10 @@ export interface PeerReviewRecord {
   comment: string;
 }
 
-export interface SLASnapshot {
-  id: string;
-  monthYear: string;
-  restaurantPct: number;
-  massagePct: number;
-  aiPct: number;
-  restaurantRaw: { total: number; met: number };
-  massageRaw: { total: number; met: number };
-  aiRaw: { total: number; met: number };
-}
-
+// Fixed: Added QAItem and QASection interfaces
 export interface QAItem {
   label: string;
-  score: number; // 1-5
+  score: number;
 }
 
 export interface QASection {
@@ -73,13 +79,14 @@ export interface QARecord {
   overallPercentage: number;
 }
 
+// Fixed: Added TestQuestion interface
 export interface TestQuestion {
   id: string;
   type: QuestionType;
   question: string;
-  correctAnswer?: string; // For choice
-  distractors?: string[]; // For choice
-  maxPoints: number; // Points for this question
+  correctAnswer?: string;
+  distractors?: string[];
+  maxPoints: number;
 }
 
 export interface AssessmentRecord {
@@ -95,10 +102,10 @@ export interface TestSubmission {
   testId: string;
   testTitle: string;
   staffName: string;
-  autoScore: number; // Score from choice
-  manualScore: number; // Score from written (initially 0)
+  autoScore: number;
+  manualScore: number;
   totalPossiblePoints: number;
-  isGraded: boolean; // False if has pending written questions
+  isGraded: boolean;
   date: string;
   answers: Record<string, string>;
   managerFeedback?: string;
@@ -119,19 +126,16 @@ export interface EvaluationRecord {
   processCompliance: number; 
   onboardingQuality: number; 
   
-  // Updated Quantitative Metrics
   slaMetCount: number;
-  slaTotalBase: number; // Global total from overview
+  slaTotalBase: number;
   individualSlaPct: number;
   responseTimeMin: number;
   projectCount: number;
   
   latestTestScore?: number;
   daysToLive: number;
-  metSlaCount?: number;       
   stepsCompleted: number;
   
-  // Workload Metrics
   incomingCalls: number;
   outgoingCalls: number;
   totalChats: number;
@@ -148,8 +152,8 @@ export interface EvaluationRecord {
 export interface MonthlySnapshotRecord {
   id: string;
   type: 'monthly_snapshot';
-  date: string; // Creation date
-  monthYear: string; // e.g. "January 2024"
+  date: string;
+  monthYear: string;
   projectSLA: {
     restaurant: { total: number; met: number };
     massage: { total: number; met: number };
