@@ -12,11 +12,9 @@ import {
   ChevronRight,
   Clipboard,
   Check,
-  Key,
-  AlertCircle,
   Loader2,
   Edit,
-  ShieldCheck
+  Plus
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AssessmentRecord, TestQuestion, QuestionType } from '../types.ts';
@@ -30,7 +28,7 @@ interface AssessmentCenterProps {
 
 const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave, onTakeTest, onDelete }) => {
   const [isCreating, setIsCreating] = useState(false);
-  const [editingAssessmentId, setEditingAssessmentId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   
   const [title, setTitle] = useState('');
   const [topic, setTopic] = useState('');
@@ -38,10 +36,9 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
   
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const startCreate = () => {
-    setEditingAssessmentId(null);
+    setEditingId(null);
     setTitle('');
     setTopic('');
     setQuestions([]);
@@ -49,10 +46,10 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
   };
 
   const startEdit = (a: AssessmentRecord) => {
-    setEditingAssessmentId(a.id);
+    setEditingId(a.id);
     setTitle(a.title);
     setTopic(a.topic);
-    setQuestions(JSON.parse(JSON.stringify(a.questions))); // Clone
+    setQuestions(JSON.parse(JSON.stringify(a.questions))); // Deep clone
     setIsCreating(true);
   };
 
@@ -76,57 +73,26 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
     setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
   };
 
-  const cleanJsonString = (text: string) => {
-    return text.replace(/```json/g, '').replace(/```/g, '').trim();
-  };
-
-  const handleSelectKey = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      setErrorMsg(null);
-    } else {
-      alert("ระบบเชื่อมต่อ API ไม่พร้อมใช้งานในโหมดนี้");
-    }
-  };
-
   const generateDistractorsWithAI = async (qId: string) => {
     const q = questions.find(item => item.id === qId);
     if (!q || !q.question || !q.correctAnswer) {
-      alert("กรุณาใส่ 'คำถาม' และ 'คำตอบที่ถูก' ก่อนกดให้ AI ช่วยคิดช้อยส์หลอก!");
+      alert("กรุณากรอก 'คำถาม' และ 'คำตอบที่ถูก' ก่อนครับ");
       return;
     }
 
-    // 1. ตรวจสอบว่ามี Key หรือยัง (สำคัญมากสำหรับ Browser Deployment)
-    if (!process.env.API_KEY) {
-      if (window.aistudio) {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          setErrorMsg("กรุณาเชื่อมต่อ API Key ก่อนใช้งาน AI");
-          await window.aistudio.openSelectKey();
-          return;
-        }
-      } else {
-        setErrorMsg("API_KEY ไม่ได้ถูกตั้งค่าในระบบ");
-        return;
-      }
-    }
-
     setIsGenerating(qId);
-    setErrorMsg(null);
 
     try {
-      // สร้าง AI Instance ใหม่ทุกครั้งเพื่อให้ใช้ Key ล่าสุดที่เลือก
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      const prompt = `ในฐานะผู้เชี่ยวชาญด้านการทดสอบประสิทธิภาพ CS
+      const prompt = `ในฐานะผู้เชี่ยวชาญ CS Training
 คำถาม: "${q.question}"
-คำตอบที่ถูกต้องคือ: "${q.correctAnswer}"
+คำตอบที่ถูก: "${q.correctAnswer}"
 
-ช่วยสร้าง "ตัวเลือกที่ผิด" (distractors) จำนวน 3 ข้อ ที่มีความเป็นไปได้แต่ไม่ถูกต้อง เพื่อใช้ในข้อสอบ Multiple Choice 
-ให้ตอบเป็น JSON Array ของ String ภาษาไทยเท่านั้น (จำนวน 3 รายการ)`;
+ช่วยคิด "ตัวเลือกที่ผิด" (Distractors) 3 ข้อที่ดูน่าเชื่อถือแต่ไม่ใช่คำตอบที่ถูก เพื่อใช้ทำข้อสอบแบบปรนัย (Multiple Choice)
+ให้ตอบเป็น JSON Array ของ String ภาษาไทยเท่านั้น ตัวอย่าง: ["คำตอบผิด1", "คำตอบผิด2", "คำตอบผิด3"]`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -137,23 +103,13 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
         }
       });
 
-      const rawText = response.text;
-      const jsonStr = cleanJsonString(rawText);
-      const distractors = JSON.parse(jsonStr);
-
-      if (Array.isArray(distractors)) {
+      const distractors = JSON.parse(response.text || "[]");
+      if (Array.isArray(distractors) && distractors.length > 0) {
         updateQuestion(qId, 'distractors', distractors.slice(0, 3));
-      } else {
-        throw new Error("AI returned invalid format");
       }
-    } catch (error: any) {
-      console.error("AI Generation failed:", error);
-      if (error.message?.includes("API Key") || error.message?.includes("API_KEY") || error.message?.includes("403")) {
-        setErrorMsg("สิทธิ์การใช้งาน API Key มีปัญหา กรุณาเลือกคีย์ใหม่อีกครั้ง");
-        if (window.aistudio) await window.aistudio.openSelectKey();
-      } else {
-        setErrorMsg("ไม่สามารถสร้างตัวเลือกได้: " + error.message);
-      }
+    } catch (error) {
+      console.error("AI Distractor Error:", error);
+      alert("ไม่สามารถใช้ AI สร้างตัวเลือกได้ในขณะนี้ กรุณาลองใหม่หรือกรอกเองครับ");
     } finally {
       setIsGenerating(null);
     }
@@ -161,60 +117,50 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
 
   const handleSaveAssessment = () => {
     if (!title || !topic || questions.length === 0) {
-      alert("กรุณาใส่ข้อมูลให้ครบ");
+      alert("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
     const record: AssessmentRecord = {
-      id: editingAssessmentId || Date.now().toString(),
+      id: editingId || Date.now().toString(),
       title,
       topic,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toLocaleDateString('th-TH'),
       questions
     };
     onSave(record);
-    setTitle('');
-    setTopic('');
-    setQuestions([]);
     setIsCreating(false);
-    setEditingAssessmentId(null);
-    alert(editingAssessmentId ? "อัปเดตชุดข้อสอบสำเร็จ!" : "บันทึกชุดข้อสอบสำเร็จ!");
+    setEditingId(null);
   };
 
   const handleCopyLink = (id: string) => {
     const baseUrl = window.location.href.split('#')[0].split('?')[0];
     const examLink = `${baseUrl}#test=${id}`;
-    
     navigator.clipboard.writeText(examLink);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
-    alert(`คัดลอกลิ้งค์สำหรับพนักงานแล้ว: ${examLink}`);
   };
 
   if (isCreating) {
     return (
-      <div className="space-y-10 animate-in fade-in duration-500 pb-20">
+      <div className="space-y-8 animate-in fade-in duration-500 pb-20">
         <div className="flex items-center justify-between">
-          <button onClick={() => { setIsCreating(false); setEditingAssessmentId(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest flex items-center gap-2">← Back to Assessment List</button>
-          {errorMsg && (
-            <div className="flex items-center gap-3 bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl border border-rose-100 animate-in slide-in-from-top-2">
-              <AlertCircle size={16} />
-              <span className="text-xs font-bold">{errorMsg}</span>
-              <button onClick={handleSelectKey} className="ml-2 underline font-black text-[10px] uppercase">Update Key</button>
-            </div>
-          )}
+          <button onClick={() => setIsCreating(false)} className="text-slate-400 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-slate-900 transition-colors">← Back to List</button>
+          <div className="px-6 py-2 bg-slate-100 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest border border-slate-200">
+            {editingId ? 'Editing Assessment' : 'New Assessment'}
+          </div>
         </div>
 
         <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-8 items-end">
           <div className="flex-1 space-y-4">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest block ml-1">Assessment Title</label>
-            <input type="text" placeholder="e.g. Monthly QA Audit (January)" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-800 outline-none focus:ring-4 focus:ring-indigo-500/10" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input type="text" placeholder="ชื่อชุดข้อสอบ" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-800 outline-none focus:ring-4 focus:ring-indigo-500/10" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="flex-1 space-y-4">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest block ml-1">Topic / Category</label>
-            <input type="text" placeholder="e.g. System Knowledge" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-800 outline-none focus:ring-4 focus:ring-indigo-500/10" value={topic} onChange={(e) => setTopic(e.target.value)} />
+            <input type="text" placeholder="หมวดหมู่" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-800 outline-none focus:ring-4 focus:ring-indigo-500/10" value={topic} onChange={(e) => setTopic(e.target.value)} />
           </div>
           <button onClick={handleSaveAssessment} className="bg-slate-900 hover:bg-black text-white px-10 py-4 rounded-2xl font-black shadow-xl h-[58px] flex items-center gap-2 active:scale-95 transition-all">
-            <Save size={20} /> {editingAssessmentId ? 'Update Assessment' : 'Save Assessment'}
+            <Save size={20} /> {editingId ? 'Update' : 'Save'} Assessment
           </button>
         </div>
 
@@ -230,13 +176,13 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
                  </div>
                  <button onClick={() => removeQuestion(q.id)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Trash2 size={20} /></button>
                </div>
-               <textarea className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[2rem] font-bold outline-none focus:border-indigo-500 transition-all text-xl" placeholder="Enter question..." value={q.question} onChange={(e) => updateQuestion(q.id, 'question', e.target.value)} />
+               <textarea className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[2rem] font-bold outline-none focus:border-indigo-500 transition-all text-xl" placeholder="คำถาม..." value={q.question} onChange={(e) => updateQuestion(q.id, 'question', e.target.value)} />
                {q.type === 'choice' ? (
                  <div className="space-y-4">
                    <div className="flex gap-4 items-center">
                      <div className="flex-1 bg-emerald-50 border-2 border-emerald-100 p-5 rounded-2xl flex items-center gap-3">
                        <Check size={18} className="text-emerald-500" />
-                       <input className="bg-transparent w-full font-black text-emerald-800 outline-none text-lg" placeholder="Correct Answer (คำตอบที่ถูกต้อง)" value={q.correctAnswer} onChange={(e) => updateQuestion(q.id, 'correctAnswer', e.target.value)} />
+                       <input className="bg-transparent w-full font-black text-emerald-800 outline-none text-lg" placeholder="คำตอบที่ถูกต้อง" value={q.correctAnswer} onChange={(e) => updateQuestion(q.id, 'correctAnswer', e.target.value)} />
                      </div>
                      <button 
                         onClick={() => generateDistractorsWithAI(q.id)} 
@@ -253,7 +199,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
                        <div key={dIdx} className="bg-slate-50 p-5 rounded-2xl border-2 border-slate-100 focus-within:border-slate-300 transition-all">
                          <input 
                            className="bg-transparent w-full text-sm font-bold text-slate-500 outline-none" 
-                           placeholder={`Distractor ${dIdx + 1}`} 
+                           placeholder={`ช้อยส์หลอกที่ ${dIdx + 1}`} 
                            value={d} 
                            onChange={(e) => {
                              const newDist = [...(q.distractors || [])];
@@ -302,14 +248,9 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
             <p className="text-slate-400 text-lg mt-1 font-medium italic">Create and manage bi-monthly performance exams</p>
           </div>
         </div>
-        <div className="flex gap-4">
-          <button onClick={handleSelectKey} className="p-5 bg-white/10 text-white rounded-[2rem] hover:bg-white/20 transition-all flex items-center gap-3" title="Manage API Key">
-            <Key size={24} /> <span className="hidden md:inline font-black text-[10px] uppercase">API Status</span>
-          </button>
-          <button onClick={startCreate} className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:scale-105 transition-all">
-             + Create New Exam
-          </button>
-        </div>
+        <button onClick={startCreate} className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:scale-105 transition-all flex items-center gap-2">
+           <Plus size={18}/> Create New Exam
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -325,13 +266,9 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
             <div key={a.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-6 group relative hover:border-indigo-300 transition-all">
                <div className="flex items-center justify-between">
                   <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-full uppercase tracking-widest">{a.topic}</span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <button onClick={() => startEdit(a)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="แก้ไขข้อสอบ">
-                      <Edit size={16}/>
-                    </button>
-                    <button onClick={() => onDelete(a.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="ลบข้อสอบ">
-                      <Trash2 size={16}/>
-                    </button>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => startEdit(a)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><Edit size={16}/></button>
+                    <button onClick={() => onDelete(a.id)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
                   </div>
                </div>
                <div className="min-h-[60px]">
@@ -342,7 +279,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
                   <div className="flex gap-4">
                     <button 
                       onClick={() => handleCopyLink(a.id)} 
-                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${copiedId === a.id ? 'text-emerald-500' : 'text-slate-400 hover:text-slate-900'}`}
+                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${copiedId === a.id ? 'text-emerald-500' : 'text-slate-400 hover:text-slate-900'}`}
                     >
                       {copiedId === a.id ? <Check size={14}/> : <Clipboard size={14}/>} 
                       {copiedId === a.id ? 'Copied' : 'Get Link'}
