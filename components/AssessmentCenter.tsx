@@ -49,7 +49,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
     setEditingId(a.id);
     setTitle(a.title);
     setTopic(a.topic);
-    setQuestions(JSON.parse(JSON.stringify(a.questions))); // Deep clone
+    setQuestions(JSON.parse(JSON.stringify(a.questions))); // Deep clone questions
     setIsCreating(true);
   };
 
@@ -73,26 +73,35 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
     setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
   };
 
+  // ฟังก์ชันช่วยทำความสะอาด JSON จาก AI
+  const cleanAIResponse = (text: string) => {
+    return text.replace(/```json/g, '').replace(/```/g, '').trim();
+  };
+
   const generateDistractorsWithAI = async (qId: string) => {
     const q = questions.find(item => item.id === qId);
     if (!q || !q.question || !q.correctAnswer) {
-      alert("กรุณากรอก 'คำถาม' และ 'คำตอบที่ถูก' ก่อนครับ");
+      alert("กรุณากรอก 'คำถาม' และ 'คำตอบที่ถูกต้อง' ก่อนเพื่อให้ AI ช่วยคิดครับ");
       return;
     }
 
     setIsGenerating(qId);
 
     try {
+      // ใช้ gemini-3-pro-preview เพื่อความฉลาดสูงสุดในการคิดตัวเลือกหลอก
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `ในฐานะผู้เชี่ยวชาญ CS Training
+      const prompt = `ในฐานะผู้เชี่ยวชาญด้านการจัดอบรมพนักงาน (CS Trainer)
+ช่วยคิด "ตัวเลือกที่ผิด" (distractors) จำนวน 3 ข้อ สำหรับคำถามต่อไปนี้:
 คำถาม: "${q.question}"
-คำตอบที่ถูก: "${q.correctAnswer}"
+คำตอบที่ถูกต้องคือ: "${q.correctAnswer}"
 
-ช่วยคิด "ตัวเลือกที่ผิด" (Distractors) 3 ข้อที่ดูน่าเชื่อถือแต่ไม่ใช่คำตอบที่ถูก เพื่อใช้ทำข้อสอบแบบปรนัย (Multiple Choice)
-ให้ตอบเป็น JSON Array ของ String ภาษาไทยเท่านั้น ตัวอย่าง: ["คำตอบผิด1", "คำตอบผิด2", "คำตอบผิด3"]`;
+เงื่อนไข:
+1. ตัวเลือกที่ผิดต้องดูน่าเชื่อถือและมีความเกี่ยวข้องกับเนื้อหา
+2. ให้ตอบเป็น JSON Array ของ String ภาษาไทยเท่านั้น เช่น ["ตัวเลือกผิด1", "ตัวเลือกผิด2", "ตัวเลือกผิด3"]
+3. ห้ามมีคำอธิบายอื่นนอกจาก JSON`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3-pro-preview",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -103,13 +112,17 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
         }
       });
 
-      const distractors = JSON.parse(response.text || "[]");
+      const cleanedJson = cleanAIResponse(response.text || "[]");
+      const distractors = JSON.parse(cleanedJson);
+
       if (Array.isArray(distractors) && distractors.length > 0) {
         updateQuestion(qId, 'distractors', distractors.slice(0, 3));
+      } else {
+        throw new Error("AI returned empty result");
       }
-    } catch (error) {
-      console.error("AI Distractor Error:", error);
-      alert("ไม่สามารถใช้ AI สร้างตัวเลือกได้ในขณะนี้ กรุณาลองใหม่หรือกรอกเองครับ");
+    } catch (error: any) {
+      console.error("AI Generation failed:", error);
+      alert("ไม่สามารถใช้ AI ได้ในขณะนี้: " + (error.message || "Unknown Error"));
     } finally {
       setIsGenerating(null);
     }
@@ -117,7 +130,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
 
   const handleSaveAssessment = () => {
     if (!title || !topic || questions.length === 0) {
-      alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+      alert("กรุณากรอกชื่อชุดข้อสอบและเพิ่มคำถามอย่างน้อย 1 ข้อครับ");
       return;
     }
     const record: AssessmentRecord = {
@@ -130,6 +143,9 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
     onSave(record);
     setIsCreating(false);
     setEditingId(null);
+    setTitle('');
+    setTopic('');
+    setQuestions([]);
   };
 
   const handleCopyLink = (id: string) => {
@@ -144,20 +160,20 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
     return (
       <div className="space-y-8 animate-in fade-in duration-500 pb-20">
         <div className="flex items-center justify-between">
-          <button onClick={() => setIsCreating(false)} className="text-slate-400 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-slate-900 transition-colors">← Back to List</button>
+          <button onClick={() => { setIsCreating(false); setEditingId(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-slate-900 transition-colors">← Back to List</button>
           <div className="px-6 py-2 bg-slate-100 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest border border-slate-200">
-            {editingId ? 'Editing Assessment' : 'New Assessment'}
+            {editingId ? 'Edit Mode: อัปเดตข้อสอบเดิม' : 'Create Mode: สร้างข้อสอบใหม่'}
           </div>
         </div>
 
         <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-8 items-end">
           <div className="flex-1 space-y-4">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest block ml-1">Assessment Title</label>
-            <input type="text" placeholder="ชื่อชุดข้อสอบ" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-800 outline-none focus:ring-4 focus:ring-indigo-500/10" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input type="text" placeholder="เช่น แบบทดสอบประจำเดือนกุมภาพันธ์" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-800 outline-none focus:ring-4 focus:ring-indigo-500/10" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="flex-1 space-y-4">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest block ml-1">Topic / Category</label>
-            <input type="text" placeholder="หมวดหมู่" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-800 outline-none focus:ring-4 focus:ring-indigo-500/10" value={topic} onChange={(e) => setTopic(e.target.value)} />
+            <input type="text" placeholder="เช่น ความรู้เรื่องระบบจอง" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-800 outline-none focus:ring-4 focus:ring-indigo-500/10" value={topic} onChange={(e) => setTopic(e.target.value)} />
           </div>
           <button onClick={handleSaveAssessment} className="bg-slate-900 hover:bg-black text-white px-10 py-4 rounded-2xl font-black shadow-xl h-[58px] flex items-center gap-2 active:scale-95 transition-all">
             <Save size={20} /> {editingId ? 'Update' : 'Save'} Assessment
@@ -176,7 +192,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
                  </div>
                  <button onClick={() => removeQuestion(q.id)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Trash2 size={20} /></button>
                </div>
-               <textarea className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[2rem] font-bold outline-none focus:border-indigo-500 transition-all text-xl" placeholder="คำถาม..." value={q.question} onChange={(e) => updateQuestion(q.id, 'question', e.target.value)} />
+               <textarea className="w-full bg-slate-50 border-2 border-slate-100 p-6 rounded-[2rem] font-bold outline-none focus:border-indigo-500 transition-all text-xl" placeholder="พิมพ์คำถามของคุณที่นี่..." value={q.question} onChange={(e) => updateQuestion(q.id, 'question', e.target.value)} />
                {q.type === 'choice' ? (
                  <div className="space-y-4">
                    <div className="flex gap-4 items-center">
@@ -199,7 +215,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
                        <div key={dIdx} className="bg-slate-50 p-5 rounded-2xl border-2 border-slate-100 focus-within:border-slate-300 transition-all">
                          <input 
                            className="bg-transparent w-full text-sm font-bold text-slate-500 outline-none" 
-                           placeholder={`ช้อยส์หลอกที่ ${dIdx + 1}`} 
+                           placeholder={`ตัวเลือกหลอกที่ ${dIdx + 1}`} 
                            value={d} 
                            onChange={(e) => {
                              const newDist = [...(q.distractors || [])];
@@ -213,7 +229,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
                  </div>
                ) : (
                  <div className="p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 text-center">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Essay View: This will be manually graded by a Supervisor using BARS methodology.</p>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Essay View: ส่วนนี้ Supervisor จะเป็นผู้ให้คะแนนด้วยตัวเองภายหลังการสอบ</p>
                  </div>
                )}
             </div>
@@ -245,7 +261,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
           <div className="p-5 bg-indigo-600 rounded-[2rem] shadow-lg shadow-indigo-500/30"><GraduationCap size={40} /></div>
           <div>
             <h2 className="text-4xl font-black tracking-tight">Assessment Hub</h2>
-            <p className="text-slate-400 text-lg mt-1 font-medium italic">Create and manage bi-monthly performance exams</p>
+            <p className="text-slate-400 text-lg mt-1 font-medium italic">จัดการและสร้างแบบทดสอบมาตรฐานสำหรับพนักงาน</p>
           </div>
         </div>
         <button onClick={startCreate} className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:scale-105 transition-all flex items-center gap-2">
@@ -259,7 +275,7 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-100">
                <BrainCircuit size={64} />
              </div>
-             <p className="font-black uppercase tracking-[0.2em] text-xs">No exams created yet</p>
+             <p className="font-black uppercase tracking-[0.2em] text-xs">ยังไม่มีชุดข้อสอบในระบบ</p>
           </div>
         ) : (
           assessments.map((a) => (
@@ -267,8 +283,8 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
                <div className="flex items-center justify-between">
                   <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-full uppercase tracking-widest">{a.topic}</span>
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                    <button onClick={() => startEdit(a)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><Edit size={16}/></button>
-                    <button onClick={() => onDelete(a.id)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
+                    <button onClick={() => startEdit(a)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="แก้ไขข้อสอบ"><Edit size={16}/></button>
+                    <button onClick={() => onDelete(a.id)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors" title="ลบข้อสอบ"><Trash2 size={16}/></button>
                   </div>
                </div>
                <div className="min-h-[60px]">
