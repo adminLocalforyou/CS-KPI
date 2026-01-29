@@ -31,7 +31,7 @@ import MasterRecord from './components/MasterRecord.tsx';
 import PublicAnswers from './components/PublicAnswers.tsx';
 import WorkloadAnalytics from './components/WorkloadAnalytics.tsx';
 
-const APP_VERSION = "4.6.0-WORKLOAD-INTEL";
+const APP_VERSION = "4.7.1-EDIT-STABLE";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -154,6 +154,18 @@ const App: React.FC = () => {
     setActiveTestId(id);
     setActiveTab('takeTest');
     window.location.hash = `test=${id}`;
+  };
+
+  const handleUpdateAssessment = (record: AssessmentRecord) => {
+    setAssessments(prev => {
+      const index = prev.findIndex(a => a.id === record.id);
+      if (index !== -1) {
+        const next = [...prev];
+        next[index] = record;
+        return next;
+      }
+      return [record, ...prev];
+    });
   };
 
   const handleSaveSnapshot = () => {
@@ -649,7 +661,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'qa' && <QAChecklist onSave={(r) => { setQaRecords([...qaRecords, r]); setActiveTab('dashboard'); }} />}
-          {activeTab === 'assessment' && <AssessmentCenter assessments={assessments} onSave={(a) => setAssessments([a, ...assessments])} onTakeTest={handleTakeTest} onDelete={(id) => setAssessments(assessments.filter(a => a.id !== id))} />}
+          {activeTab === 'assessment' && <AssessmentCenter assessments={assessments} onSave={handleUpdateAssessment} onTakeTest={handleTakeTest} onDelete={(id) => setAssessments(assessments.filter(a => a.id !== id))} />}
           {activeTab === 'grading' && <GradingDesk submissions={testSubmissions} assessments={assessments} onUpdate={(s) => setTestSubmissions(prev => prev.map(item => item.id === s.id ? s : item))} />}
           {activeTab === 'takeTest' && <TakeTest test={assessments.find(a => a.id === activeTestId)} submissions={testSubmissions} onSubmit={(s) => { setTestSubmissions([...testSubmissions, s]); setActiveTab('dashboard'); window.location.hash = ''; }} />}
           {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([p, ...proofRecords])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
