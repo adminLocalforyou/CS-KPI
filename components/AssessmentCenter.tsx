@@ -15,7 +15,8 @@ import {
   Key,
   AlertCircle,
   Loader2,
-  Edit
+  Edit,
+  ShieldCheck
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AssessmentRecord, TestQuestion, QuestionType } from '../types.ts';
@@ -83,6 +84,8 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
       setErrorMsg(null);
+    } else {
+      alert("ระบบเชื่อมต่อ API ไม่พร้อมใช้งานในโหมดนี้");
     }
   };
 
@@ -93,10 +96,26 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
       return;
     }
 
+    // 1. ตรวจสอบว่ามี Key หรือยัง (สำคัญมากสำหรับ Browser Deployment)
+    if (!process.env.API_KEY) {
+      if (window.aistudio) {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          setErrorMsg("กรุณาเชื่อมต่อ API Key ก่อนใช้งาน AI");
+          await window.aistudio.openSelectKey();
+          return;
+        }
+      } else {
+        setErrorMsg("API_KEY ไม่ได้ถูกตั้งค่าในระบบ");
+        return;
+      }
+    }
+
     setIsGenerating(qId);
     setErrorMsg(null);
 
     try {
+      // สร้าง AI Instance ใหม่ทุกครั้งเพื่อให้ใช้ Key ล่าสุดที่เลือก
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const prompt = `ในฐานะผู้เชี่ยวชาญด้านการทดสอบประสิทธิภาพ CS
@@ -129,10 +148,11 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
       }
     } catch (error: any) {
       console.error("AI Generation failed:", error);
-      if (error.message?.includes("API_KEY") || error.message?.includes("403")) {
-        setErrorMsg("API Key มีปัญหาหรือสิทธิ์ไม่เพียงพอ");
+      if (error.message?.includes("API Key") || error.message?.includes("API_KEY") || error.message?.includes("403")) {
+        setErrorMsg("สิทธิ์การใช้งาน API Key มีปัญหา กรุณาเลือกคีย์ใหม่อีกครั้ง");
+        if (window.aistudio) await window.aistudio.openSelectKey();
       } else {
-        setErrorMsg("ไม่สามารถสร้างตัวเลือกได้ในขณะนี้: " + error.message);
+        setErrorMsg("ไม่สามารถสร้างตัวเลือกได้: " + error.message);
       }
     } finally {
       setIsGenerating(null);
@@ -283,8 +303,8 @@ const AssessmentCenter: React.FC<AssessmentCenterProps> = ({ assessments, onSave
           </div>
         </div>
         <div className="flex gap-4">
-          <button onClick={handleSelectKey} className="p-5 bg-white/10 text-white rounded-[2rem] hover:bg-white/20 transition-all" title="Manage API Key">
-            <Key size={24} />
+          <button onClick={handleSelectKey} className="p-5 bg-white/10 text-white rounded-[2rem] hover:bg-white/20 transition-all flex items-center gap-3" title="Manage API Key">
+            <Key size={24} /> <span className="hidden md:inline font-black text-[10px] uppercase">API Status</span>
           </button>
           <button onClick={startCreate} className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:scale-105 transition-all">
              + Create New Exam
