@@ -1,12 +1,12 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import { 
   BarChart3, Clock, Users, Zap, TrendingUp, AlertCircle, ShieldCheck, 
   Info, Trash2, Upload, Settings, Plus, Loader2, CheckCircle2, FileText,
-  CalendarDays, ChevronDown, History, BookOpen, ArrowRight, Save
+  CalendarDays, ChevronDown, History, BookOpen, ArrowRight, Save, Search
 } from 'lucide-react';
 import { EvaluationRecord, TaskConfig, WorkHistoryRecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
@@ -47,52 +47,56 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
   const [currentRowName, setCurrentRowName] = useState('');
   const [processedCount, setProcessedCount] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
   // State สำหรับงานที่ AI ไม่แน่ใจ
   const [pendingReviewTasks, setPendingReviewTasks] = useState<WorkHistoryRecord[]>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     localStorage.setItem('cs_task_configs_v1', JSON.stringify(taskConfigs));
   }, [taskConfigs]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     localStorage.setItem('cs_work_history_v1', JSON.stringify(workHistory));
   }, [workHistory]);
 
+  // Fix: Added availableMonths to resolve the "Cannot find name 'availableMonths'" error
   const availableMonths = useMemo(() => {
     const months = new Set<string>();
     workHistory.forEach(item => {
-      if (item.date && item.date !== "No Date") {
-        const d = new Date(item.date);
-        if (!isNaN(d.getTime())) {
-          months.add(d.toISOString().substring(0, 7));
+      if (item.date && item.date.length >= 7) {
+        // Try to extract YYYY-MM prefix
+        const monthPart = item.date.substring(0, 7);
+        if (/^\d{4}-\d{2}$/.test(monthPart)) {
+          months.add(monthPart);
         }
       }
     });
     return Array.from(months).sort().reverse();
   }, [workHistory]);
 
+  const addLog = (msg: string) => {
+    setDebugLogs(prev => [msg, ...prev].slice(0, 5));
+    setStatusMsg(msg);
+  };
+
   const evaluateTaskWithAI = async (taskName: string, configs: TaskConfig[]) => {
-    if (!taskName) return "Uncategorized";
-    if (configs.length === 0) return "Uncategorized";
+    if (!taskName || configs.length === 0) return "Uncategorized";
     
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const categories = configs.map(c => `"${c.name}"`).join(", ");
-      const systemPrompt = `คุณคือผู้เชี่ยวชาญด้าน Operations วิเคราะห์งานพนักงานและจัดกลุ่มเข้าหมวดหมู่ที่มีอยู่: [${categories}] 
-หากงานที่ให้มา "มีความหมายใกล้เคียง" กับหมวดหมู่ใด ให้ตอบชื่อหมวดหมู่นั้นเพียงคำเดียวเท่านั้น
-หากไม่มั่นใจ หรือเป็นงานใหม่ที่ไม่เกี่ยวข้องเลย ให้ตอบว่า "Uncategorized" เท่านั้น ห้ามเดาสุ่ม`;
+      const systemPrompt = `คุณคือผู้เชี่ยวชาญด้าน Operations วิเคราะห์งานพนักงานและจัดกลุ่มเข้าหมวดหมู่: [${categories}] 
+ตอบชื่อหมวดหมู่ที่ตรงที่สุด "คำเดียว" เท่านั้น หากไม่มั่นใจให้ตอบ "Uncategorized"`;
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `วิเคราะห์งานนี้: "${taskName}"`,
+        contents: `งาน: "${taskName}"`,
         config: { systemInstruction: systemPrompt }
       });
       
-      const result = response.text.trim().replace(/[".]/g, '');
-      return result || "Uncategorized";
+      return response.text.trim().replace(/[".]/g, '') || "Uncategorized";
     } catch (e) {
-      console.error("AI Error:", e);
       return "Uncategorized";
     }
   };
@@ -101,47 +105,62 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!(window as any).XLSX) {
+      alert("ระบบกำลังโหลด Library พิเศษ... กรุณารอสักครู่แล้วลองใหม่ครับ");
+      return;
+    }
+
     setIsProcessing(true);
     setProcessedCount(0);
     setTotalRows(0);
-    setPendingReviewTasks([]);
-    setStatusMsg('กำลังเริ่มประมวลผลไฟล์...');
+    setDebugLogs([]);
+    addLog("กำลังเปิดไฟล์...");
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
         const data = evt.target?.result;
         const workbook = (window as any).XLSX.read(data, { type: 'binary' });
-        const rows = (window as any).XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+        const sheetName = workbook.SheetNames[0];
+        const rows = (window as any).XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
         if (!rows || rows.length === 0) {
-          setStatusMsg('ไม่พบข้อมูลในไฟล์ Excel');
+          addLog("❌ ไม่พบข้อมูลในแผ่นงานแรก");
           setIsProcessing(false);
           return;
         }
 
         setTotalRows(rows.length);
+        addLog(`✅ พบข้อมูลทั้งหมด ${rows.length} แถว เริ่มวิเคราะห์...`);
+
         const validRecords: WorkHistoryRecord[] = [];
         const reviewQueue: WorkHistoryRecord[] = [];
 
+        // Helper to find column regardless of exact spelling
+        const findField = (row: any, keys: string[]) => {
+          const rowKeys = Object.keys(row);
+          const foundKey = rowKeys.find(rk => 
+            keys.some(k => rk.toLowerCase().replace(/\s/g, '').includes(k.toLowerCase().replace(/\s/g, '')))
+          );
+          return foundKey ? row[foundKey] : null;
+        };
+
         for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
+          const row = rows[i] as any;
           setProcessedCount(i + 1);
-          
-          const findField = (row: any, keys: string[]) => {
-            const key = Object.keys(row).find(k => keys.some(s => k.toLowerCase().replace(/\s/g, '') === s.toLowerCase().replace(/\s/g, '')));
-            return key ? row[key] : null;
-          };
 
-          const taskName = findField(row, ['Name', 'TaskName', 'งาน', 'Description']);
-          const owner = findField(row, ['Taskowner', 'Owner', 'เจ้าของงาน', 'Assignee']);
-          const dateVal = findField(row, ['DueDate', 'Date', 'วันที่']);
+          const taskName = findField(row, ['name', 'task', 'งาน', 'description', 'รายละเอียด']);
+          const owner = findField(row, ['owner', 'assignee', 'เจ้าของ', 'พนักงาน']);
+          const dateVal = findField(row, ['date', 'due', 'วันที่']);
 
-          if (!taskName || !owner) continue;
+          if (!taskName || !owner) {
+            addLog(`⚠️ แถวที่ ${i+1} ข้อมูลไม่ครบ (ข้าม)`);
+            continue;
+          }
 
           setCurrentRowName(String(taskName));
-          setStatusMsg(`กำลังวิเคราะห์แถวที่ ${i+1}/${rows.length}...`);
-
+          
+          // AI Classification
           const categoryName = await evaluateTaskWithAI(String(taskName), taskConfigs);
           const config = taskConfigs.find(c => c.name === categoryName);
           const minutes = config ? Number(config.minutes) : 0;
@@ -149,8 +168,7 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
           let dateStr = "No Date";
           if (dateVal) {
             if (typeof dateVal === 'number') {
-              const d = (window as any).XLSX.utils.format_cell({ v: dateVal, t: 'd' });
-              dateStr = d || new Date().toISOString().split('T')[0];
+              dateStr = (window as any).XLSX.utils.format_cell({ v: dateVal, t: 'd' }) || new Date().toISOString().split('T')[0];
             } else {
               dateStr = String(dateVal);
             }
@@ -172,29 +190,23 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
             validRecords.push(record);
           }
 
-          // Delay เพื่อความนิ่งของ UI และป้องกัน API Rate Limit
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Small delay for UI update
+          if (i % 5 === 0) await new Promise(resolve => setTimeout(resolve, 50));
         }
         
         setWorkHistory(prev => [...prev, ...validRecords]);
         
         if (reviewQueue.length > 0) {
           setPendingReviewTasks(reviewQueue);
-          setStatusMsg(`วิเคราะห์เสร็จสิ้น! พบงานที่ไม่รู้จัก ${reviewQueue.length} รายการ กรุณาสอน AI เพิ่มเติมครับ`);
-          setTimeout(() => {
-            setIsProcessing(false);
-            setActiveTab('review');
-          }, 1500);
+          addLog(`เสร็จสิ้น! พบงานที่ไม่รู้จัก ${reviewQueue.length} รายการ`);
+          setTimeout(() => { setIsProcessing(false); setActiveTab('review'); }, 1000);
         } else {
-          setStatusMsg(`วิเคราะห์เสร็จสมบูรณ์ 100%!`);
-          setTimeout(() => {
-            setIsProcessing(false);
-            setActiveTab('dashboard');
-          }, 1500);
+          addLog(`เสร็จสมบูรณ์! เพิ่มข้อมูล ${validRecords.length} รายการ`);
+          setTimeout(() => { setIsProcessing(false); setActiveTab('dashboard'); }, 1000);
         }
       } catch (err) {
         console.error(err);
-        setStatusMsg('เกิดข้อผิดพลาดในการประมวลผล');
+        addLog("❌ เกิดข้อผิดพลาดในการอ่านไฟล์");
         setIsProcessing(false);
       }
     };
@@ -204,40 +216,46 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
   const handleApplyReview = (taskId: string, categoryName: string) => {
     const task = pendingReviewTasks.find(t => t.id === taskId);
     if (!task) return;
-
     const config = taskConfigs.find(c => c.name === categoryName);
-    if (!config) return;
-
-    const updatedTask = { ...task, category: categoryName, minutes: config.minutes };
+    const updatedTask = { ...task, category: categoryName, minutes: config?.minutes || 0 };
     setWorkHistory(prev => [...prev, updatedTask]);
     setPendingReviewTasks(prev => prev.filter(t => t.id !== taskId));
-
-    if (pendingReviewTasks.length === 1) {
-      setActiveTab('dashboard');
-    }
+    if (pendingReviewTasks.length === 1) setActiveTab('dashboard');
   };
 
   const dashboardStats = useMemo(() => {
     const dataMap: Record<string, { mins: number, tasks: number, byDate: Record<string, number>, maxDailyMins: number }> = {};
+    
+    // Initialize all priority team members to 0
+    PRIORITY_TEAM.forEach(name => {
+      dataMap[name] = { mins: 0, tasks: 0, byDate: {}, maxDailyMins: 0 };
+    });
+
     const filteredHistory = selectedMonth === 'all' ? workHistory : workHistory.filter(item => item.date.startsWith(selectedMonth));
 
     filteredHistory.forEach(item => {
-      const owner = item.owner || 'Unknown';
-      const matchedName = PRIORITY_TEAM.find(pt => pt.toLowerCase().replace(/\s/g, '') === owner.toLowerCase().replace(/\s/g, '')) || owner;
+      const ownerRaw = item.owner || 'Unknown';
+      // Fuzzy matching to find in priority team
+      const matchedName = PRIORITY_TEAM.find(pt => 
+        pt.toLowerCase().replace(/\s/g, '').includes(ownerRaw.toLowerCase().replace(/\s/g, '')) ||
+        ownerRaw.toLowerCase().replace(/\s/g, '').includes(pt.toLowerCase().replace(/\s/g, ''))
+      );
       
-      if (!dataMap[matchedName]) dataMap[matchedName] = { mins: 0, tasks: 0, byDate: {}, maxDailyMins: 0 };
-      dataMap[matchedName].mins += (item.minutes || 0);
-      dataMap[matchedName].tasks += 1;
+      const targetName = matchedName || ownerRaw;
+      if (!dataMap[targetName]) dataMap[targetName] = { mins: 0, tasks: 0, byDate: {}, maxDailyMins: 0 };
+      
+      dataMap[targetName].mins += (item.minutes || 0);
+      dataMap[targetName].tasks += 1;
       
       const d = item.date;
-      if (!dataMap[matchedName].byDate[d]) dataMap[matchedName].byDate[d] = 0;
-      dataMap[matchedName].byDate[d] += (item.minutes || 0);
-      if (dataMap[matchedName].byDate[d] > dataMap[matchedName].maxDailyMins) {
-        dataMap[matchedName].maxDailyMins = dataMap[matchedName].byDate[d];
+      if (!dataMap[targetName].byDate[d]) dataMap[targetName].byDate[d] = 0;
+      dataMap[targetName].byDate[d] += (item.minutes || 0);
+      if (dataMap[targetName].byDate[d] > dataMap[targetName].maxDailyMins) {
+        dataMap[targetName].maxDailyMins = dataMap[targetName].byDate[d];
       }
     });
 
-    const tableData = Object.entries(dataMap).map(([name, data]) => ({
+    return Object.entries(dataMap).map(([name, data]) => ({
       name,
       ...data,
       hrs: data.mins / 60,
@@ -246,10 +264,8 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
       const idxA = PRIORITY_TEAM.indexOf(a.name);
       const idxB = PRIORITY_TEAM.indexOf(b.name);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      return a.name.localeCompare(b.name);
+      return b.hrs - a.hrs;
     });
-
-    return { tableData, filteredCount: filteredHistory.length };
   }, [workHistory, selectedMonth]);
 
   const progressPercent = totalRows > 0 ? Math.round((processedCount / totalRows) * 100) : 0;
@@ -264,33 +280,17 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
           </div>
           <div className="hidden md:block">
             <h2 className="font-black text-base uppercase tracking-tight text-slate-800 leading-none mb-1">Workload Intel</h2>
-            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">Data Engine v2.0</p>
+            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">Engine v2.1-STABLE</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {activeTab === 'dashboard' && (
-            <div className="relative group">
-              <select 
-                className="pl-12 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[11px] uppercase tracking-widest text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-              >
-                <option value="all">📅 ข้อมูลทั้งหมด</option>
-                {availableMonths.map(m => (
-                  <option key={m} value={m}>{new Date(m).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          )}
-          <div className="h-8 w-px bg-slate-200 mx-2"></div>
           <div className="flex gap-1.5 p-1.5 bg-slate-100 rounded-2xl border border-slate-200/50">
             {[
               { id: 'dashboard', icon: BarChart3, label: 'แดชบอร์ด' },
               { id: 'upload', icon: Upload, label: 'อัปโหลด' },
               { id: 'settings', icon: Settings, label: 'สอน AI' },
-              ...(pendingReviewTasks.length > 0 ? [{ id: 'review', icon: AlertCircle, label: `ต้องสอนเพิ่ม (${pendingReviewTasks.length})` }] : [])
+              ...(pendingReviewTasks.length > 0 ? [{ id: 'review', icon: AlertCircle, label: `Review (${pendingReviewTasks.length})` }] : [])
             ].map(tab => (
               <button
                 key={tab.id}
@@ -309,51 +309,57 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
 
       {activeTab === 'dashboard' && (
         <div className="space-y-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-             <StatCard icon={Clock} color="bg-blue-50 text-blue-600" label="Total Workload" value={`${(dashboardStats.tableData.reduce((a,b)=>a+b.hrs,0)).toFixed(1)} ชม.`} />
-             <StatCard icon={Zap} color="bg-purple-50 text-purple-600" label="Tasks Logged" value={`${dashboardStats.filteredCount} รายการ`} />
-             <StatCard icon={Users} color="bg-indigo-50 text-indigo-600" label="Staff Involved" value={`${dashboardStats.tableData.length} คน`} />
+          <div className="flex items-center justify-between px-8">
+            <div className="flex items-center gap-3">
+               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><CalendarDays size={16}/></div>
+               <select 
+                className="bg-transparent font-black text-xs uppercase tracking-widest text-slate-400 outline-none cursor-pointer"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              >
+                <option value="all">แสดงทุกช่วงเวลา</option>
+                {availableMonths.map(m => (
+                  <option key={m} value={m}>{new Date(m).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="bg-white rounded-[3.5rem] shadow-2xl border border-slate-200 overflow-hidden mx-2">
-            <div className="p-10 border-b border-slate-100">
-              <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">ประสิทธิภาพงานรายบุคคล</h2>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">คำนวณจากชั่วโมงมาตรฐานที่คุณสอน AI ไว้</p>
-            </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left">
                 <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
                   <tr>
                     <th className="px-10 py-8">เจ้าของงาน</th>
                     <th className="px-8 py-8 text-center">ชั่วโมงงานรวม</th>
-                    <th className="px-8 py-8 text-center">Peak (วันเดียว)</th>
-                    <th className="px-10 py-8">สถานะภาระงาน</th>
+                    <th className="px-8 py-8 text-center">ชั่วโมง PEAK/วัน</th>
+                    <th className="px-10 py-8">สถานะภาระงาน (180 ชม. Limit)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {dashboardStats.tableData.map((data) => {
+                  {dashboardStats.map((data) => {
                     const isWarning = data.hrs > 178;
                     const progress = Math.min((data.hrs / 180) * 100, 100);
                     return (
-                      <tr key={data.name} className={`hover:bg-slate-50 transition-all ${isWarning ? 'bg-rose-50/30' : ''}`}>
+                      <tr key={data.name} className={`hover:bg-slate-50 transition-all ${isWarning ? 'bg-rose-50/20' : ''}`}>
                         <td className="px-10 py-8">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg">{data.name.charAt(0)}</div>
                             <div>
                                <div className="font-black text-slate-900 text-lg leading-none mb-1">{data.name}</div>
-                               <div className="text-[10px] font-bold text-slate-400 uppercase">{data.tasks} งานที่บันทึก</div>
+                               <div className="text-[10px] font-bold text-slate-400 uppercase">{data.tasks} Tasks</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-8 py-8 text-center font-black text-3xl text-indigo-600 tracking-tighter">{data.hrs.toFixed(1)}</td>
                         <td className="px-8 py-8 text-center font-bold text-slate-400">{data.peakHrs.toFixed(1)}</td>
-                        <td className="px-10 py-8 min-w-[200px]">
+                        <td className="px-10 py-8 min-w-[250px]">
                            <div className="flex items-center gap-3">
-                              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div className={`h-full ${isWarning ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{width: `${progress}%`}} />
+                              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                                <div className={`h-full transition-all duration-1000 ${isWarning ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{width: `${progress}%`}} />
                               </div>
-                              <span className={`text-[10px] font-black uppercase ${isWarning ? 'text-rose-500' : 'text-indigo-500'}`}>
-                                {isWarning ? 'Overloaded' : 'Normal'}
+                              <span className={`text-[10px] font-black uppercase min-w-[60px] ${isWarning ? 'text-rose-500' : 'text-indigo-500'}`}>
+                                {isWarning ? 'Critical' : `${Math.round(progress)}%`}
                               </span>
                            </div>
                         </td>
@@ -371,9 +377,9 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
         <div className="max-w-4xl mx-auto space-y-10 py-10">
           <div className="bg-indigo-900 rounded-[4rem] p-16 text-white shadow-2xl relative overflow-hidden text-center">
              <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none rotate-12"><History size={180} /></div>
-             <h2 className="text-4xl font-black tracking-tight mb-4 uppercase">Upload Your Worksheet</h2>
+             <h2 className="text-4xl font-black tracking-tight mb-4 uppercase">Smart Workload Uploader</h2>
              <p className="text-indigo-200 font-bold max-w-xl mx-auto italic">
-               อัปโหลดไฟล์ Excel เพื่อให้ AI วิเคราะห์ชั่วโมงงาน หากมีรายการที่ AI ไม่รู้จัก ระบบจะคัดกรองมาให้คุณสอนเพิ่มทันทีครับ
+               ระบบจะตรวจหาคอลัมน์ [เจ้าของงาน] และ [ชื่องาน] โดยอัตโนมัติ หาก AI ไม่แน่ใจจะแยกงานไว้ให้คุณสอนเพิ่มทันที
              </p>
           </div>
 
@@ -384,27 +390,35 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
                    {isProcessing ? <Loader2 className="animate-spin" size={48} /> : <Upload size={48} />}
                 </div>
                 <h3 className="text-3xl font-black text-slate-900 mb-2 uppercase tracking-tighter">
-                   {isProcessing ? 'AI กำลังวิเคราะห์ข้อมูล...' : 'วางไฟล์ Excel ที่นี่'}
+                   {isProcessing ? 'กำลังประมวลผล...' : 'คลิกเพื่อเลือกไฟล์ Excel'}
                 </h3>
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">คลิกเพื่อเลือกไฟล์ (xls, xlsx)</p>
              </div>
           </div>
 
           {isProcessing && (
-            <div className="bg-white p-12 rounded-[4rem] border-2 border-indigo-100 shadow-2xl flex items-center gap-12 animate-in zoom-in-95">
-               <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
-                  <svg className="absolute w-full h-full transform -rotate-90">
-                    <circle className="text-slate-100" strokeWidth="10" stroke="currentColor" fill="transparent" r="50" cx="64" cy="64" />
-                    <circle className="text-indigo-600 transition-all duration-300" strokeWidth="10" strokeDasharray={314.15} strokeDashoffset={314.15 - (314.15 * progressPercent / 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="50" cx="64" cy="64" />
-                  </svg>
-                  <span className="text-3xl font-black text-indigo-600">{progressPercent}%</span>
-               </div>
-               <div className="space-y-2">
-                  <h4 className="text-2xl font-black text-slate-900 uppercase">Processing...</h4>
-                  <p className="text-slate-500 font-bold text-sm italic">กำลังประมวลผล: {currentRowName.substring(0, 30)}...</p>
-                  <div className="flex gap-2 pt-4">
-                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">{statusMsg}</span>
+            <div className="bg-white p-12 rounded-[4rem] border-2 border-indigo-100 shadow-2xl space-y-8 animate-in zoom-in-95">
+               <div className="flex items-center gap-12">
+                  <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
+                      <svg className="absolute w-full h-full transform -rotate-90">
+                        <circle className="text-slate-100" strokeWidth="10" stroke="currentColor" fill="transparent" r="50" cx="64" cy="64" />
+                        <circle className="text-indigo-600 transition-all duration-300" strokeWidth="10" strokeDasharray={314.15} strokeDashoffset={314.15 - (314.15 * progressPercent / 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="50" cx="64" cy="64" />
+                      </svg>
+                      <span className="text-3xl font-black text-indigo-600">{progressPercent}%</span>
                   </div>
+                  <div className="space-y-3 flex-1">
+                      <h4 className="text-2xl font-black text-slate-900 uppercase">Analysis Engine Active</h4>
+                      <p className="text-indigo-500 font-bold text-sm italic">{currentRowName || 'เตรียมข้อมูล...'}</p>
+                      <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">{statusMsg}</p>
+                  </div>
+               </div>
+               
+               <div className="bg-slate-50 p-6 rounded-3xl space-y-2 border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Log</p>
+                  {debugLogs.map((log, i) => (
+                    <p key={i} className="text-[11px] font-bold text-slate-600 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> {log}
+                    </p>
+                  ))}
                </div>
             </div>
           )}
@@ -412,47 +426,30 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
       )}
 
       {activeTab === 'review' && (
-        <div className="max-w-4xl mx-auto space-y-10 py-10 animate-in slide-in-from-bottom-8">
-           <div className="bg-rose-600 rounded-[4rem] p-12 text-white shadow-2xl flex items-center justify-between gap-10">
-              <div className="space-y-2">
-                 <h2 className="text-4xl font-black tracking-tight uppercase">AI Uncertainty Review</h2>
-                 <p className="text-rose-100 font-bold italic">พบงาน {pendingReviewTasks.length} รายการที่ AI ไม่แน่ใจ กรุณาสอนเพิ่มเพื่อความแม่นยำครับ</p>
+        <div className="max-w-4xl mx-auto space-y-8 py-10">
+           <div className="bg-rose-600 rounded-[3rem] p-10 text-white shadow-xl flex items-center justify-between">
+              <div>
+                 <h2 className="text-3xl font-black uppercase">Teaching Required</h2>
+                 <p className="font-bold opacity-80">พบงานใหม่ {pendingReviewTasks.length} รายการที่ AI ยังไม่รู้จัก</p>
               </div>
-              <div className="p-6 bg-white/20 rounded-[2.5rem]"><AlertCircle size={48} /></div>
+              <AlertCircle size={48} className="opacity-30" />
            </div>
-
-           <div className="space-y-6">
+           <div className="space-y-4">
               {pendingReviewTasks.map(task => (
-                <div key={task.id} className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm space-y-8 group transition-all hover:border-indigo-400">
-                   <div className="flex items-start justify-between">
-                      <div className="flex-1 space-y-2">
-                         <div className="flex items-center gap-3">
-                           <span className="w-8 h-8 bg-slate-900 text-white rounded-xl flex items-center justify-center text-[10px] font-black">{task.owner.charAt(0)}</span>
-                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{task.owner} • {task.date}</p>
-                         </div>
-                         <h4 className="text-xl font-black text-slate-900 leading-tight">{task.description}</h4>
-                      </div>
-                      <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl"><HelpCircle className="animate-pulse" size={24} /></div>
+                <div key={task.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between gap-6 group hover:border-indigo-400 transition-all">
+                   <div className="flex-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase mb-1">{task.owner} • {task.date}</p>
+                      <h4 className="font-black text-slate-800 text-lg leading-tight">{task.description}</h4>
                    </div>
-
-                   <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row items-center gap-6">
-                      <div className="flex-1 w-full space-y-3">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">เลือกหมวดหมู่ที่เหมาะสม (สอน AI)</label>
-                         <select 
-                            className="w-full bg-white border border-slate-200 rounded-2xl py-4 px-6 font-black text-slate-700 outline-none"
-                            onChange={(e) => handleApplyReview(task.id, e.target.value)}
-                            defaultValue=""
-                         >
-                            <option value="" disabled>-- โปรดเลือกหมวดหมู่ --</option>
-                            {taskConfigs.map(c => <option key={c.id} value={c.name}>{c.name} ({c.minutes} นาที)</option>)}
-                         </select>
-                      </div>
-                      <div className="text-slate-300 hidden md:block"><ArrowRight size={24} /></div>
-                      <div className="md:w-1/3 w-full">
-                         <button onClick={() => setActiveTab('settings')} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black text-slate-400 uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
-                           <Plus size={14} /> สร้างหมวดหมู่ใหม่
-                         </button>
-                      </div>
+                   <div className="w-64">
+                      <select 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-black text-xs text-slate-700 outline-none"
+                        onChange={(e) => handleApplyReview(task.id, e.target.value)}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>เลือกหมวดหมู่...</option>
+                        {taskConfigs.map(c => <option key={c.id} value={c.name}>{c.name} ({c.minutes} นาที)</option>)}
+                      </select>
                    </div>
                 </div>
               ))}
@@ -483,7 +480,6 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
                       if(n.value && m.value) { 
                         setTaskConfigs([...taskConfigs, { id: Math.random().toString(36).substr(2, 9), name: n.value, minutes: Number(m.value) }]); 
                         n.value=''; m.value=''; 
-                        if (pendingReviewTasks.length > 0) setActiveTab('review');
                       }
                     }}
                     className="bg-indigo-600 text-white px-10 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-indigo-700 active:scale-95 transition-all"
@@ -494,7 +490,7 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
               </div>
             </div>
           </div>
-
+          
           <div className="bg-white rounded-[4rem] border border-slate-200 overflow-hidden shadow-sm">
              <div className="p-10 border-b border-slate-100 font-black text-[11px] uppercase text-slate-400 tracking-widest">หมวดหมู่ที่คุณสอนไว้ ({taskConfigs.length})</div>
              <div className="divide-y divide-slate-100">
@@ -530,14 +526,6 @@ const StatCard = ({ icon: Icon, color, label, value }: { icon: any, color: strin
       </div>
     </div>
   </div>
-);
-
-const HelpCircle = ({ className, size }: { className?: string, size?: number }) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-    <line x1="12" y1="17" x2="12.01" y2="17" />
-  </svg>
 );
 
 export default WorkloadAnalytics;
