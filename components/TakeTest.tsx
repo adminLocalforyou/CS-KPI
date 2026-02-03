@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   Award, 
@@ -16,7 +17,9 @@ import {
   Check,
   ArrowLeft,
   FileText,
-  Clock
+  Clock,
+  Download,
+  Copy
 } from 'lucide-react';
 import { AssessmentRecord, TestSubmission } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
@@ -31,8 +34,24 @@ const TakeTest: React.FC<TakeTestProps> = ({ test, submissions, onSubmit }) => {
   const [selectedStaffName, setSelectedStaffName] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isFinished, setIsFinished] = useState(false);
+  const [manualCode, setManualCode] = useState('');
 
-  // Check if current user already taken this specific test
+  const handleManualImport = () => {
+    if (!manualCode) return;
+    try {
+      const decodedData = JSON.parse(decodeURIComponent(atob(manualCode)));
+      if (decodedData && decodedData.id) {
+        // ใช้รหัสที่วางใหม่เพื่อรันแอปใหม่ (จำลองการ Import)
+        window.location.hash = `#import=${manualCode}`;
+        window.location.reload();
+      } else {
+        alert("รหัสไม่ถูกต้อง");
+      }
+    } catch (e) {
+      alert("รหัสไม่ถูกต้อง หรือรูปแบบผิดพลาดครับ");
+    }
+  };
+
   const alreadyTaken = useMemo(() => {
     if (!test || !selectedStaffName) return false;
     return submissions.some(s => s.testId === test.id && s.staffName === selectedStaffName);
@@ -51,11 +70,38 @@ const TakeTest: React.FC<TakeTestProps> = ({ test, submissions, onSubmit }) => {
   }, [test]);
 
   if (!test) return (
-    <div className="h-screen flex items-center justify-center bg-slate-50 flex-col gap-4">
-      <AlertCircle size={64} className="text-rose-500" />
-      <h2 className="text-2xl font-black text-slate-900 uppercase">Exam Not Found</h2>
-      <p className="text-slate-400 font-bold">ชุดข้อสอบนี้ไม่มีอยู่จริง หรือถูกลบไปแล้ว</p>
-      <button onClick={() => window.location.hash = ''} className="mt-4 px-8 py-3 bg-slate-900 text-white rounded-xl font-black">Return Home</button>
+    <div className="h-screen flex items-center justify-center bg-slate-50 flex-col gap-6 p-10 text-center animate-in fade-in duration-500">
+      <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center shadow-lg"><AlertCircle size={48} /></div>
+      <div className="space-y-2">
+        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Exam Not Found</h2>
+        <p className="text-slate-400 font-bold max-w-md">ชุดข้อสอบนี้ไม่มีอยู่จริง หรือลิงก์ที่คุณได้รับ "หมดอายุ" เนื่องจากเป็นลิงก์แบบชั่วคราว (Blob URL)</p>
+      </div>
+      
+      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl w-full max-w-lg space-y-6">
+         <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">หากคุณมี "รหัสข้อสอบ" (Share Code) ให้วางที่นี่:</label>
+            <div className="flex gap-3">
+               <input 
+                 type="text" 
+                 placeholder="วางรหัสข้อสอบที่นี่..." 
+                 className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-4 font-bold text-slate-700 outline-none focus:border-indigo-500"
+                 value={manualCode}
+                 onChange={(e) => setManualCode(e.target.value)}
+               />
+               <button 
+                 onClick={handleManualImport}
+                 className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all"
+               >
+                 Start
+               </button>
+            </div>
+         </div>
+         <div className="pt-6 border-t border-slate-50">
+           <button onClick={() => window.location.hash = ''} className="text-blue-600 font-black uppercase text-[10px] tracking-widest flex items-center gap-2 justify-center mx-auto hover:underline">
+             <ArrowLeft size={14}/> Return Home
+           </button>
+         </div>
+      </div>
     </div>
   );
 
@@ -85,7 +131,6 @@ const TakeTest: React.FC<TakeTestProps> = ({ test, submissions, onSubmit }) => {
       return;
     }
 
-    // Ensure all questions are answered or confirm
     const totalQuestions = test.questions.length;
     const answeredCount = Object.keys(answers).length;
     if (answeredCount < totalQuestions) {
@@ -106,7 +151,7 @@ const TakeTest: React.FC<TakeTestProps> = ({ test, submissions, onSubmit }) => {
       autoScore: autoScore,
       manualScore: 0,
       totalPossiblePoints: totalPossible,
-      isGraded: !hasWritten, // Auto graded if no written questions
+      isGraded: !hasWritten,
       date: new Date().toLocaleDateString('th-TH'),
       answers
     };
@@ -123,7 +168,6 @@ const TakeTest: React.FC<TakeTestProps> = ({ test, submissions, onSubmit }) => {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center p-6 md:p-12 animate-in fade-in duration-500 overflow-y-auto">
         <div className="max-w-4xl w-full space-y-10">
-          {/* Header Card */}
           <div className="bg-indigo-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden text-center">
             <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none rotate-12"><Award size={200} /></div>
             <div className="relative z-10 space-y-4">
@@ -135,7 +179,6 @@ const TakeTest: React.FC<TakeTestProps> = ({ test, submissions, onSubmit }) => {
             </div>
           </div>
 
-          {/* Results Summary Card */}
           <div className="bg-white rounded-[3.5rem] p-10 shadow-xl border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-10">
             <div className="flex-1 text-center md:text-left space-y-2">
               <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Calculated Choice Score</p>
@@ -160,7 +203,6 @@ const TakeTest: React.FC<TakeTestProps> = ({ test, submissions, onSubmit }) => {
             )}
           </div>
 
-          {/* Immediate Review Section */}
           <div className="space-y-8">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-3 px-6">
               <FileText className="text-blue-500" /> ตรวจทานผลการตอบ (Immediate Review)

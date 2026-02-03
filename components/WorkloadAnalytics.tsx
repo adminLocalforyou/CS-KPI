@@ -7,39 +7,32 @@ import {
   BarChart3, Clock, Users, Zap, TrendingUp, AlertCircle, ShieldCheck, 
   Info, Trash2, Upload, Settings, Plus, Loader2, CheckCircle2, FileText,
   CalendarDays, ChevronDown, History, BookOpen, ArrowRight, Save, Search,
-  Terminal
+  Terminal, UserCheck, Play, RefreshCw, LayoutDashboard, BrainCircuit, ListTodo,
+  FileSearch, CheckCircle, PlusCircle
 } from 'lucide-react';
 import { EvaluationRecord, TaskConfig, WorkHistoryRecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
-import { GoogleGenAI } from "@google/genai";
 
 interface WorkloadAnalyticsProps {
   evaluations: EvaluationRecord[];
   isManager: boolean;
 }
 
-const PRIORITY_TEAM = [
-  "Gam Anantida",
-  "Namva Kaniknan",
-  "Aom Boonchutinan",
-  "Sai Jutatip",
-  "Noey Nataya",
-  "Pume Thanut",
-  "Pookie Nantaporn",
-  "Aim Julaluk"
-];
-
 const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isManager }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'upload' | 'settings' | 'review'>('dashboard');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   
   const [taskConfigs, setTaskConfigs] = useState<TaskConfig[]>(() => {
-    const saved = localStorage.getItem('cs_task_configs_v2');
-    return saved ? JSON.parse(saved) : [];
+    const saved = localStorage.getItem('cs_task_configs_v7');
+    return saved ? JSON.parse(saved) : [
+      { id: 'def1', name: 'ตอบแชทลูกค้า', minutes: 10 },
+      { id: 'def2', name: 'Email', minutes: 15 },
+      { id: 'def3', name: 'Setup System', minutes: 60 }
+    ];
   });
   
   const [workHistory, setWorkHistory] = useState<WorkHistoryRecord[]>(() => {
-    const saved = localStorage.getItem('cs_work_history_v2');
+    const saved = localStorage.getItem('cs_work_history_v7');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -49,19 +42,18 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
   const [processedCount, setProcessedCount] = useState(0);
   const [totalRows, setTotalRows] = useState(0);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
-
-  const [pendingReviewTasks, setPendingReviewTasks] = useState<WorkHistoryRecord[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<WorkHistoryRecord[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('cs_task_configs_v2', JSON.stringify(taskConfigs));
+    localStorage.setItem('cs_task_configs_v7', JSON.stringify(taskConfigs));
   }, [taskConfigs]);
 
   useEffect(() => {
-    localStorage.setItem('cs_work_history_v2', JSON.stringify(workHistory));
+    localStorage.setItem('cs_work_history_v7', JSON.stringify(workHistory));
   }, [workHistory]);
 
   const addLog = (msg: string) => {
-    setDebugLogs(prev => [msg, ...prev].slice(0, 10));
+    setDebugLogs(prev => [msg, ...prev].slice(0, 15));
     setStatusMsg(msg);
   };
 
@@ -76,116 +68,101 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
     return Array.from(months).sort().reverse();
   }, [workHistory]);
 
-  const evaluateTaskWithAI = async (taskName: string, configs: TaskConfig[]) => {
-    if (!taskName) return "Uncategorized";
-    
-    // 1. ลอง Match แบบ Local ก่อน (เพื่อความเร็วและแม่นยำตามที่สอน)
+  const findConfigForTask = (taskName: string): TaskConfig | null => {
     const normalizedTask = taskName.toLowerCase().trim();
-    const localMatch = configs.find(c => 
-      normalizedTask.includes(c.name.toLowerCase().trim()) || 
-      c.name.toLowerCase().trim().includes(normalizedTask)
-    );
-    
-    if (localMatch) return localMatch.name;
-
-    // 2. ถ้า Local ไม่เจอ ให้ AI ช่วยวิเคราะห์
-    if (configs.length === 0) return "Uncategorized";
-    
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const categories = configs.map(c => `"${c.name}"`).join(", ");
-      const systemPrompt = `คุณคือผู้เชี่ยวชาญด้าน Operations วิเคราะห์งานพนักงานและจัดกลุ่มเข้าหมวดหมู่: [${categories}] 
-หากงานที่ให้มา "มีความหมายใกล้เคียง" กับหมวดหมู่ที่ระบุ ให้ตอบชื่อหมวดหมู่นั้นเพียงคำเดียว (Case Sensitive ตามที่ให้มา)
-หากไม่มั่นใจ หรือเป็นงานใหม่ที่ไม่เกี่ยวข้องเลย ให้ตอบว่า "Uncategorized" เท่านั้น`;
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `งานที่ต้องวิเคราะห์: "${taskName}"`,
-        config: { systemInstruction: systemPrompt, temperature: 0.1 }
-      });
-      
-      const result = response.text.trim().replace(/[".]/g, '');
-      
-      // ตรวจสอบว่า AI ตอบตรงกับที่มีใน Config หรือไม่
-      const finalMatch = configs.find(c => c.name.trim() === result.trim());
-      return finalMatch ? finalMatch.name : "Uncategorized";
-    } catch (e) {
-      console.error("AI Error:", e);
-      return "Uncategorized";
-    }
+    return taskConfigs.find(c => {
+      const configName = c.name.toLowerCase().trim();
+      return normalizedTask.includes(configName) || configName.includes(normalizedTask);
+    }) || null;
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset input เพื่อให้เลือกไฟล์เดิมซ้ำได้ในกรณีที่รอบแรกพลาด
+    const inputElement = e.target;
+    
+    // ตรวจสอบ Library
     if (!(window as any).XLSX) {
-      alert("ระบบกำลังโหลดเครื่องมืออ่านไฟล์... กรุณารอสักครู่แล้วลองใหม่");
+      alert("❌ ระบบประมวลผล Excel ยังไม่พร้อม (Library Missing)\nกรุณารอสักครู่แล้วลองใหม่อีกครั้งครับ");
+      inputElement.value = '';
       return;
     }
 
+    // เริ่มต้นกระบวนการ
     setIsProcessing(true);
     setProcessedCount(0);
     setTotalRows(0);
     setDebugLogs([]);
-    addLog("🚀 เริ่มต้นการประมวลผลไฟล์...");
+    setPendingTasks([]);
+    
+    addLog(`📁 ตรวจพบไฟล์: ${file.name}`);
+    addLog("⏳ กำลังเตรียมความพร้อมระบบ...");
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+        addLog("📖 กำลังอ่านข้อมูลในไฟล์...");
         const data = evt.target?.result;
-        const workbook = (window as any).XLSX.read(data, { type: 'binary' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = (window as any).XLSX.utils.sheet_to_json(sheet);
+        const workbook = (window as any).XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const rows = (window as any).XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
         if (!rows || rows.length === 0) {
-          addLog("❌ ไม่พบข้อมูลในไฟล์ Excel");
+          addLog("❌ ไม่พบข้อมูลในแผ่นงานแรก");
           setIsProcessing(false);
+          inputElement.value = '';
           return;
         }
 
         setTotalRows(rows.length);
-        addLog(`✅ พบข้อมูล ${rows.length} รายการ กำลังวิเคราะห์ทีละขั้นตอน...`);
-
+        addLog(`✅ พบข้อมูลทั้งหมด ${rows.length} แถว`);
+        
         const validRecords: WorkHistoryRecord[] = [];
-        const reviewQueue: WorkHistoryRecord[] = [];
+        const unrecRecords: WorkHistoryRecord[] = [];
 
-        const findField = (row: any, keys: string[]) => {
-          const rowKeys = Object.keys(row);
-          const foundKey = rowKeys.find(rk => 
-            keys.some(k => rk.toLowerCase().replace(/\s/g, '').includes(k.toLowerCase().replace(/\s/g, '')))
-          );
-          return foundKey ? row[foundKey] : null;
+        const findValue = (row: any, keywords: string[]) => {
+          const keys = Object.keys(row);
+          const match = keys.find(k => {
+            const cleanKey = k.toLowerCase().replace(/\s/g, '').replace(/_/g, '').replace(/-/g, '');
+            return keywords.some(kw => cleanKey.includes(kw));
+          });
+          return match ? row[match] : null;
         };
+
+        const taskKeywords = ['topic', 'task', 'งาน', 'รายละเอียด', 'description', 'subject', 'หัวข้อ', 'รายการ', 'งานที่ทำ', 'activity'];
+        const ownerKeywords = ['owner', 'assignee', 'พนักงาน', 'ชื่อ', 'staff', 'เจ้าของ', 'user', 'name', 'ผู้รับผิดชอบ', 'ผู้ทำ', 'agent'];
+        const dateKeywords = ['date', 'วันที่', 'time', 'created', 'due', 'วันเวลา'];
 
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i] as any;
           setProcessedCount(i + 1);
 
-          const taskName = findField(row, ['name', 'task', 'งาน', 'description', 'รายละเอียด']);
-          const owner = findField(row, ['owner', 'assignee', 'เจ้าของ', 'พนักงาน', 'staff']);
-          const dateVal = findField(row, ['date', 'due', 'วันที่']);
+          const taskRaw = findValue(row, taskKeywords);
+          const ownerRaw = findValue(row, ownerKeywords);
+          const dateRaw = findValue(row, dateKeywords);
 
-          if (!taskName || !owner) {
-            addLog(`⚠️ แถวที่ ${i+1}: ข้อมูลไม่ครบถ้วน (ข้าม)`);
+          if (!taskRaw || !ownerRaw) {
+            if (i === 0) {
+              addLog(`⚠️ ไม่พบคอลัมน์สำคัญ (ชื่อพนักงาน/งาน) ในแถวที่ ${i+1}`);
+            }
             continue;
           }
 
-          const taskStr = String(taskName);
-          const ownerStr = String(owner).trim();
-          setCurrentRowName(taskStr);
+          const taskStr = String(taskRaw).trim();
+          const ownerStr = String(ownerRaw).trim();
+          setCurrentRowName(`${ownerStr}: ${taskStr.substring(0, 20)}...`);
 
-          // AI / Local Analysis
-          const categoryName = await evaluateTaskWithAI(taskStr, taskConfigs);
-          const config = taskConfigs.find(c => c.name === categoryName);
-          const minutes = config ? Number(config.minutes) : 0;
-
-          let dateStr = "No Date";
-          if (dateVal) {
-            if (typeof dateVal === 'number') {
-              dateStr = (window as any).XLSX.utils.format_cell({ v: dateVal, t: 'd' }) || new Date().toISOString().split('T')[0];
+          const config = findConfigForTask(taskStr);
+          
+          let finalDate = new Date().toISOString().split('T')[0];
+          if (dateRaw) {
+            if (typeof dateRaw === 'number') {
+              finalDate = (window as any).XLSX.utils.format_cell({ v: dateRaw, t: 'd' }) || finalDate;
             } else {
-              dateStr = String(dateVal);
+              const d = new Date(dateRaw);
+              if (!isNaN(d.getTime())) finalDate = d.toISOString().split('T')[0];
             }
           }
 
@@ -193,123 +170,146 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
             id: Math.random().toString(36).substr(2, 9),
             description: taskStr,
             owner: ownerStr,
-            date: dateStr,
-            category: categoryName,
-            minutes: minutes,
+            date: finalDate,
+            category: config ? config.name : "Uncategorized",
+            minutes: config ? Number(config.minutes) : 0,
             uploadedAt: new Date().toISOString()
           };
 
-          if (categoryName === "Uncategorized") {
-            reviewQueue.push(record);
-            addLog(`📝 พบงานใหม่: ${taskStr.substring(0,20)}... (ส่งเข้าคิวสอน)`);
+          if (!config) {
+            unrecRecords.push(record);
           } else {
             validRecords.push(record);
-            addLog(`✨ วิเคราะห์สำเร็จ: ${categoryName} (${minutes} นาที)`);
           }
 
-          // หน่วงเวลาเล็กน้อยเพื่อให้ UI อัปเดตและป้องกัน Rate Limit
-          await new Promise(resolve => setTimeout(resolve, 80));
+          // ป้องกัน Browser ค้างด้วยการ Yield
+          if (i % 100 === 0) await new Promise(r => setTimeout(r, 0));
         }
         
         setWorkHistory(prev => [...prev, ...validRecords]);
-        
-        if (reviewQueue.length > 0) {
-          setPendingReviewTasks(reviewQueue);
-          addLog(`🎉 วิเคราะห์เสร็จสิ้น! มีงาน ${reviewQueue.length} รายการที่ต้องสอนเพิ่ม`);
-          setTimeout(() => { setIsProcessing(false); setActiveTab('review'); }, 1500);
+        inputElement.value = ''; // ล้างค่าหลังทำเสร็จ
+
+        if (unrecRecords.length > 0) {
+          setPendingTasks(unrecRecords);
+          addLog(`🚧 พบงานใหม่ที่ต้องระบุเวลาเพิ่ม...`);
+          setTimeout(() => { setIsProcessing(false); setActiveTab('review'); }, 1000);
         } else {
-          addLog(`🎉 เสร็จสมบูรณ์! ทุกรายการถูกจัดกลุ่มเรียบร้อย`);
-          setTimeout(() => { setIsProcessing(false); setActiveTab('dashboard'); }, 1500);
+          addLog(`🏆 นำเข้าข้อมูลสำเร็จทั้งหมด!`);
+          setTimeout(() => { setIsProcessing(false); setActiveTab('dashboard'); }, 1000);
         }
       } catch (err) {
-        addLog("❌ เกิดข้อผิดพลาดร้ายแรงขณะอ่านไฟล์");
+        addLog("❌ Error: " + String(err));
         setIsProcessing(false);
+        inputElement.value = '';
       }
     };
-    reader.readAsBinaryString(file);
+
+    reader.onerror = () => {
+      addLog("❌ ไม่สามารถอ่านไฟล์ได้");
+      setIsProcessing(false);
+      inputElement.value = '';
+    };
+
+    // ใช้ readAsArrayBuffer แทนแบบเดิมเพื่อความเสถียร
+    reader.readAsArrayBuffer(file);
   };
 
-  const handleApplyReview = (taskId: string, categoryName: string) => {
-    const task = pendingReviewTasks.find(t => t.id === taskId);
-    if (!task) return;
-    const config = taskConfigs.find(c => c.name === categoryName);
-    if (!config) return;
+  const groupedPendingTasks = useMemo(() => {
+    const groups: Record<string, WorkHistoryRecord[]> = {};
+    pendingTasks.forEach(t => {
+      if (!groups[t.description]) groups[t.description] = [];
+      groups[t.description].push(t);
+    });
+    return Object.entries(groups).map(([desc, items]) => ({
+      description: desc,
+      count: items.length,
+      exampleOwner: items[0].owner,
+      items: items
+    })).sort((a, b) => b.count - a.count);
+  }, [pendingTasks]);
 
-    const updatedTask = { ...task, category: categoryName, minutes: config.minutes };
-    setWorkHistory(prev => [...prev, updatedTask]);
-    setPendingReviewTasks(prev => prev.filter(t => t.id !== taskId));
-
-    if (pendingReviewTasks.length === 1) {
-      setActiveTab('dashboard');
+  const handleQuickAddAndApply = (description: string, minutes: number) => {
+    if (minutes <= 0) {
+       alert("กรุณาระบุจำนวนนาทีให้ถูกต้องครับ");
+       return;
     }
+    
+    const newConfig: TaskConfig = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: description,
+      minutes: minutes
+    };
+    setTaskConfigs(prev => [...prev, newConfig]);
+
+    const itemsToUpdate = pendingTasks.filter(t => t.description === description);
+    const updatedRecords = itemsToUpdate.map(t => ({
+      ...t,
+      category: description,
+      minutes: minutes
+    }));
+
+    setWorkHistory(prev => [...prev, ...updatedRecords]);
+    setPendingTasks(prev => prev.filter(t => t.description !== description));
+    addLog(`✨ บันทึกกฎ "${description.substring(0, 15)}..." แล้ว`);
   };
 
   const dashboardStats = useMemo(() => {
-    const dataMap: Record<string, { mins: number, tasks: number, byDate: Record<string, number>, maxDailyMins: number }> = {};
+    const dataMap: Record<string, { mins: number, tasks: number }> = {};
     
-    // Initialize Priority Team
-    PRIORITY_TEAM.forEach(name => {
-      dataMap[name] = { mins: 0, tasks: 0, byDate: {}, maxDailyMins: 0 };
+    TEAM_MEMBERS.forEach(m => {
+      dataMap[m.name] = { mins: 0, tasks: 0 };
     });
 
-    const filteredHistory = selectedMonth === 'all' ? workHistory : workHistory.filter(item => item.date.startsWith(selectedMonth));
+    const filtered = selectedMonth === 'all' 
+      ? workHistory 
+      : workHistory.filter(h => h.date.startsWith(selectedMonth));
 
-    filteredHistory.forEach(item => {
-      const ownerRaw = item.owner || 'Unknown';
-      const matchedName = PRIORITY_TEAM.find(pt => 
-        pt.toLowerCase().replace(/\s/g, '').includes(ownerRaw.toLowerCase().replace(/\s/g, '')) ||
-        ownerRaw.toLowerCase().replace(/\s/g, '').includes(pt.toLowerCase().replace(/\s/g, ''))
-      );
+    filtered.forEach(h => {
+      const matchedStaff = TEAM_MEMBERS.find(m => {
+        const n1 = m.name.toLowerCase().replace(/\s/g, '');
+        const n2 = h.owner.toLowerCase().replace(/\s/g, '');
+        return n1.includes(n2) || n2.includes(n1);
+      });
+
+      const targetName = matchedStaff ? matchedStaff.name : h.owner;
       
-      const targetName = matchedName || ownerRaw;
-      if (!dataMap[targetName]) dataMap[targetName] = { mins: 0, tasks: 0, byDate: {}, maxDailyMins: 0 };
-      
-      dataMap[targetName].mins += (item.minutes || 0);
+      if (!dataMap[targetName]) dataMap[targetName] = { mins: 0, tasks: 0 };
+      dataMap[targetName].mins += (Number(h.minutes) || 0);
       dataMap[targetName].tasks += 1;
-      
-      const d = item.date;
-      if (!dataMap[targetName].byDate[d]) dataMap[targetName].byDate[d] = 0;
-      dataMap[targetName].byDate[d] += (item.minutes || 0);
-      if (dataMap[targetName].byDate[d] > dataMap[targetName].maxDailyMins) {
-        dataMap[targetName].maxDailyMins = dataMap[targetName].byDate[d];
-      }
     });
 
     return Object.entries(dataMap).map(([name, data]) => ({
       name,
-      ...data,
-      hrs: data.mins / 60,
-      peakHrs: data.maxDailyMins / 60
-    })).sort((a, b) => {
-      const idxA = PRIORITY_TEAM.indexOf(a.name);
-      const idxB = PRIORITY_TEAM.indexOf(b.name);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      return b.hrs - a.hrs;
-    });
+      tasks: data.tasks,
+      hrs: data.mins / 60
+    })).sort((a, b) => b.hrs - a.hrs);
   }, [workHistory, selectedMonth]);
 
-  const progressPercent = totalRows > 0 ? Math.round((processedCount / totalRows) * 100) : 0;
+  const handleClearHistory = () => {
+    if (confirm("⚠️ ต้องการล้างประวัติงานทั้งหมดใช่หรือไม่?")) {
+      setWorkHistory([]);
+    }
+  };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700 pb-20">
-      {/* Tab Navigation */}
+    <div className="space-y-10 animate-in fade-in duration-700 pb-20 px-2">
       <div className="bg-white/90 backdrop-blur-2xl border border-slate-200 p-3 rounded-[2.5rem] flex items-center justify-between shadow-xl sticky top-4 z-40 mx-2">
         <div className="flex items-center gap-5 pl-6">
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-indigo-200">
-            <TrendingUp size={24} />
+          <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-2xl">
+            <BarChart3 size={24} />
           </div>
           <div className="hidden md:block">
             <h2 className="font-black text-base uppercase tracking-tight text-slate-800 leading-none mb-1">Workload Analytics</h2>
-            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">Efficiency Engine v2.5</p>
+            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">Efficiency Dashboard</p>
           </div>
         </div>
 
         <div className="flex gap-1.5 p-1.5 bg-slate-100 rounded-2xl">
           {[
-            { id: 'dashboard', icon: BarChart3, label: 'แดชบอร์ด' },
-            { id: 'upload', icon: Upload, label: 'อัปโหลด' },
-            { id: 'settings', icon: Settings, label: 'สอน AI' },
-            ...(pendingReviewTasks.length > 0 ? [{ id: 'review', icon: AlertCircle, label: `ต้องสอน (${pendingReviewTasks.length})` }] : [])
+            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { id: 'upload', icon: Upload, label: 'Upload' },
+            { id: 'settings', icon: Settings, label: 'Rules' },
+            ...(pendingTasks.length > 0 ? [{ id: 'review', icon: AlertCircle, label: `Review (${groupedPendingTasks.length})` }] : [])
           ].map(tab => (
             <button
               key={tab.id}
@@ -326,8 +326,8 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
       </div>
 
       {activeTab === 'dashboard' && (
-        <div className="space-y-10">
-          <div className="flex items-center justify-between px-8">
+        <div className="space-y-10 animate-in slide-in-from-bottom-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between px-8 gap-4">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"><CalendarDays size={20}/></div>
               <select 
@@ -335,118 +335,116 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
               >
-                <option value="all">แสดงผลทั้งหมด (Cumulative)</option>
+                <option value="all">สะสมทั้งหมด (Cumulative)</option>
                 {availableMonths.map(m => (
                   <option key={m} value={m}>{new Date(m).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</option>
                 ))}
               </select>
             </div>
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Last Synced: {new Date().toLocaleTimeString()}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400">
+                <div className="w-3 h-3 bg-indigo-500 rounded-sm"></div> พบข้อมูล {workHistory.length} รายการ
+              </div>
+              <button onClick={handleClearHistory} className="text-[10px] font-black text-rose-500 uppercase flex items-center gap-2 hover:text-rose-700 transition-colors">
+                <Trash2 size={14} /> ล้างข้อมูลประวัติ
+              </button>
             </div>
           </div>
 
-          <div className="bg-white rounded-[3.5rem] shadow-2xl border border-slate-200 overflow-hidden mx-2">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
-                  <tr>
-                    <th className="px-10 py-8">เจ้าของงาน</th>
-                    <th className="px-8 py-8 text-center">ชั่วโมงงานรวม</th>
-                    <th className="px-8 py-8 text-center">ชั่วโมง PEAK/วัน</th>
-                    <th className="px-10 py-8">สถานะภาระงาน (180 ชม. Limit)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {dashboardStats.map((data) => {
-                    const isWarning = data.hrs > 178;
-                    const progress = Math.min((data.hrs / 180) * 100, 100);
-                    return (
-                      <tr key={data.name} className={`hover:bg-slate-50 transition-all ${isWarning ? 'bg-rose-50/20' : ''}`}>
-                        <td className="px-10 py-8">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-lg">{data.name.charAt(0)}</div>
-                            <div>
-                               <div className="font-black text-slate-900 text-lg leading-none mb-1">{data.name}</div>
-                               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{data.tasks} งานที่บันทึก</div>
-                            </div>
+          <div className="bg-white rounded-[3.5rem] shadow-2xl border border-slate-200 overflow-hidden overflow-x-auto">
+            <table className="w-full text-left min-w-[800px]">
+              <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
+                <tr>
+                  <th className="px-10 py-8">เจ้าของงาน (Task Owner)</th>
+                  <th className="px-8 py-8 text-center">ชั่วโมงทำงานรวม</th>
+                  <th className="px-8 py-8 text-center">จำนวนชิ้นงาน</th>
+                  <th className="px-10 py-8">สถานะ (180 HRS Limit)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {dashboardStats.map((data) => {
+                  const progress = Math.min((data.hrs / 180) * 100, 100);
+                  const isLow = data.tasks === 0;
+                  return (
+                    <tr key={data.name} className={`hover:bg-slate-50 transition-all ${isLow ? 'opacity-40' : ''}`}>
+                      <td className="px-10 py-8">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${isLow ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-white shadow-lg'}`}>
+                            {data.name.charAt(0)}
                           </div>
-                        </td>
-                        <td className="px-8 py-8 text-center font-black text-4xl text-indigo-600 tracking-tighter">
-                          {data.hrs.toFixed(1)} <span className="text-xs text-slate-400 font-bold ml-1">HRS</span>
-                        </td>
-                        <td className="px-8 py-8 text-center font-bold text-slate-400">{data.peakHrs.toFixed(1)}</td>
-                        <td className="px-10 py-8 min-w-[280px]">
-                           <div className="flex items-center gap-3">
-                              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                                <div className={`h-full transition-all duration-1000 ${isWarning ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{width: `${progress}%`}} />
-                              </div>
-                              <span className={`text-[11px] font-black uppercase min-w-[70px] ${isWarning ? 'text-rose-500 animate-pulse' : 'text-indigo-500'}`}>
-                                {isWarning ? 'OVERLOAD' : `${Math.round(progress)}%`}
-                              </span>
-                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <div className="font-black text-slate-900 text-lg leading-none">{data.name}</div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-8 text-center">
+                         <span className={`font-black text-4xl tracking-tighter ${data.hrs === 0 && !isLow ? 'text-rose-400' : isLow ? 'text-slate-300' : 'text-indigo-600'}`}>
+                           {data.hrs.toFixed(1)}
+                         </span>
+                         <span className="text-xs text-slate-400 font-bold ml-1">HRS</span>
+                      </td>
+                      <td className="px-8 py-8 text-center font-black text-slate-700 text-xl">
+                        {data.tasks} งาน
+                      </td>
+                      <td className="px-10 py-8 min-w-[280px]">
+                         <div className="flex items-center gap-3">
+                            <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={`h-full transition-all duration-1000 ${progress > 90 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{width: `${progress}%`}} />
+                            </div>
+                            <span className="text-[11px] font-black text-slate-400 w-12">{Math.round(progress)}%</span>
+                         </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {activeTab === 'upload' && (
         <div className="max-w-4xl mx-auto space-y-10 py-10">
-          <div className="bg-indigo-900 rounded-[4rem] p-16 text-white shadow-2xl relative overflow-hidden text-center">
+          <div className="bg-slate-900 rounded-[4rem] p-16 text-white shadow-2xl relative overflow-hidden text-center">
              <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none rotate-12"><History size={180} /></div>
-             <h2 className="text-4xl font-black tracking-tight mb-4 uppercase">Smart Worksheet Analysis</h2>
-             <p className="text-indigo-200 font-bold max-w-xl mx-auto italic">
-               อัปโหลด Excel เพื่อคำนวณชั่วโมงงาน ระบบจะดึงข้อมูล Task และเวลาตามที่คุณสอนไว้ หากเจอรายการใหม่ ระบบจะแจ้งเตือนให้คุณระบุเวลาเพิ่มครับ
+             <h2 className="text-4xl font-black tracking-tight mb-4 uppercase">Upload Workload File</h2>
+             <p className="text-slate-400 font-bold max-w-xl mx-auto italic opacity-80 leading-relaxed">
+               อัปโหลด Excel เพื่อคำนวณชั่วโมงงานอัตโนมัติ (ระบบรองรับภาษาไทย)<br/>
+               <span className="text-indigo-400">หาส่งไฟล์แล้วข้อมูลไม่ขึ้น:</span> โปรดตรวจสอบหัวข้อคอลัมน์ว่ามีคำว่า "พนักงาน" และ "งาน" หรือไม่
              </p>
           </div>
 
-          <div className={`relative border-8 border-dashed rounded-[5rem] p-24 text-center transition-all ${isProcessing ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-white hover:border-indigo-500 group'}`}>
-             <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} disabled={isProcessing} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-wait" />
-             <div className="flex flex-col items-center">
-                <div className={`w-32 h-32 rounded-[3.5rem] flex items-center justify-center mb-8 shadow-2xl transition-all ${isProcessing ? 'bg-indigo-600 animate-pulse text-white' : 'bg-slate-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'}`}>
-                   {isProcessing ? <Loader2 className="animate-spin" size={48} /> : <Upload size={48} />}
-                </div>
-                <h3 className="text-3xl font-black text-slate-900 mb-2 uppercase tracking-tighter">
-                   {isProcessing ? 'AI กำลังวิเคราะห์ข้อมูล...' : 'คลิกเพื่อเลือกไฟล์ Excel'}
-                </h3>
-                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2 italic">รองรับ .xlsx, .xls (ระบบจะตรวจหาคอลัมน์ให้อัตโนมัติ)</p>
-             </div>
-          </div>
-
-          {isProcessing && (
+          {!isProcessing ? (
+            <div className="relative border-8 border-dashed rounded-[5rem] p-24 text-center border-slate-100 bg-white hover:border-indigo-500 group transition-all">
+               <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+               <div className="flex flex-col items-center">
+                  <div className="w-32 h-32 rounded-[3.5rem] flex items-center justify-center mb-8 shadow-2xl bg-slate-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                     <Upload size={48} />
+                  </div>
+                  <h3 className="text-3xl font-black text-slate-900 mb-2 uppercase tracking-tighter">คลิกเพื่อเลือกไฟล์ Excel</h3>
+                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">รองรับ .xlsx และ .xls</p>
+               </div>
+            </div>
+          ) : (
             <div className="bg-white p-12 rounded-[4rem] border-2 border-indigo-100 shadow-2xl space-y-8 animate-in zoom-in-95">
                <div className="flex items-center gap-12">
                   <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
                       <svg className="absolute w-full h-full transform -rotate-90">
                         <circle className="text-slate-100" strokeWidth="12" stroke="currentColor" fill="transparent" r="60" cx="72" cy="72" />
-                        <circle className="text-indigo-600 transition-all duration-300" strokeWidth="12" strokeDasharray={377} strokeDashoffset={377 - (377 * progressPercent / 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="60" cx="72" cy="72" />
+                        <circle className="text-indigo-600 transition-all duration-300" strokeWidth="12" strokeDasharray={377} strokeDashoffset={377 - (377 * (processedCount / totalRows) || 0)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="60" cx="72" cy="72" />
                       </svg>
-                      <span className="text-4xl font-black text-indigo-600">{progressPercent}%</span>
+                      <span className="text-4xl font-black text-indigo-600">{totalRows > 0 ? Math.round((processedCount / totalRows) * 100) : 0}%</span>
                   </div>
                   <div className="space-y-4 flex-1">
                       <div className="flex items-center gap-3">
-                        <span className="bg-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full animate-pulse">LIVE ANALYSIS</span>
-                        <h4 className="text-2xl font-black text-slate-900 uppercase">Engine is Analyzing</h4>
+                         <span className="bg-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full animate-pulse tracking-widest uppercase">Analyzing Data...</span>
                       </div>
-                      <p className="text-indigo-500 font-bold text-base italic truncate max-w-lg">กำลังประมวลผล: {currentRowName || 'เตรียมข้อมูล...'}</p>
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <Terminal size={14} />
-                        <p className="text-[10px] font-black uppercase tracking-widest">{statusMsg}</p>
-                      </div>
+                      <p className="text-slate-800 font-black text-lg truncate max-w-lg">{currentRowName || 'Processing...'}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Terminal size={12}/> {statusMsg}</p>
                   </div>
                </div>
-               
-               <div className="bg-slate-900 p-8 rounded-3xl space-y-3 border border-slate-800 shadow-inner max-h-[200px] overflow-y-auto custom-scrollbar">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Deep Learning Console Log</p>
+               <div className="bg-slate-900 p-8 rounded-3xl space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar shadow-inner">
                   {debugLogs.map((log, i) => (
-                    <p key={i} className="text-[11px] font-mono text-indigo-300 flex items-center gap-3">
-                      <span className="text-indigo-600">[{new Date().toLocaleTimeString()}]</span> {log}
+                    <p key={i} className="text-[11px] font-mono text-indigo-300 border-l-2 border-indigo-600 pl-4 py-1">
+                       <span className="text-indigo-600/50">[{i+1}]</span> {log}
                     </p>
                   ))}
                </div>
@@ -459,32 +457,40 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
         <div className="max-w-4xl mx-auto space-y-8 py-10 animate-in slide-in-from-bottom-8">
            <div className="bg-rose-600 rounded-[3rem] p-12 text-white shadow-2xl flex items-center justify-between gap-10">
               <div className="space-y-3">
-                 <h2 className="text-4xl font-black uppercase tracking-tight">AI Training Required</h2>
-                 <p className="text-rose-100 font-bold text-lg italic opacity-90">พบงานใหม่ {pendingReviewTasks.length} รายการที่ AI ไม่แน่ใจ กรุณาสอนเพิ่มเพื่อความแม่นยำครับ</p>
+                 <h2 className="text-4xl font-black uppercase tracking-tight">ต้องระบุเวลา (Uncategorized)</h2>
+                 <p className="text-rose-100 font-bold text-lg italic opacity-90">พบหัวข้องานใหม่ {groupedPendingTasks.length} กลุ่ม โปรดระบุเวลาเพื่อให้ Dashboard แสดงผลชั่วโมงงานครับ</p>
               </div>
               <div className="p-8 bg-white/20 rounded-[2.5rem]"><AlertCircle size={48} className="animate-bounce" /></div>
            </div>
 
-           <div className="space-y-5">
-              {pendingReviewTasks.map(task => (
-                <div key={task.id} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 group hover:border-indigo-400 transition-all">
-                   <div className="flex-1 space-y-2">
+           <div className="space-y-6">
+              {groupedPendingTasks.map(group => (
+                <div key={group.description} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 group hover:border-indigo-400 transition-all duration-300">
+                   <div className="flex-1 space-y-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-black bg-slate-900 text-white px-3 py-1 rounded-lg uppercase">{task.owner}</span>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{task.date}</p>
+                        <span className="text-[10px] font-black bg-slate-900 text-white px-3 py-1 rounded-lg uppercase">{group.count} ชิ้นงาน</span>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">พนักงาน: {group.exampleOwner}</p>
                       </div>
-                      <h4 className="font-black text-slate-800 text-xl leading-snug">{task.description}</h4>
+                      <h4 className="font-black text-slate-800 text-xl leading-snug">{group.description}</h4>
                    </div>
-                   <div className="w-full md:w-80 space-y-3">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">เลือกหมวดหมู่ที่เหมาะสม (สอน AI)</label>
-                      <select 
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 font-black text-slate-700 outline-none focus:border-indigo-500 transition-all cursor-pointer"
-                        onChange={(e) => handleApplyReview(task.id, e.target.value)}
-                        defaultValue=""
+                   <div className="w-full md:w-80 flex gap-3">
+                      <div className="relative flex-1">
+                        <input 
+                          type="number" 
+                          placeholder="นาทีต่อชิ้น..." 
+                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-4 font-black text-center outline-none focus:border-indigo-500 shadow-inner"
+                          id={`mins-${group.description}`}
+                        />
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const input = document.getElementById(`mins-${group.description}`) as HTMLInputElement;
+                          handleQuickAddAndApply(group.description, Number(input.value));
+                        }}
+                        className="px-8 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-2"
                       >
-                        <option value="" disabled>-- เลือกหมวดหมู่งาน --</option>
-                        {taskConfigs.map(c => <option key={c.id} value={c.name}>{c.name} ({c.minutes} นาที)</option>)}
-                      </select>
+                        <PlusCircle size={16}/> บันทึกกฎ
+                      </button>
                    </div>
                 </div>
               ))}
@@ -493,22 +499,22 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
       )}
 
       {activeTab === 'settings' && (
-        <div className="max-w-4xl mx-auto space-y-12 py-10 animate-in fade-in">
+        <div className="max-w-4xl mx-auto space-y-12 py-10">
           <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-slate-200 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-10 opacity-5 text-indigo-600 rotate-12"><BookOpen size={120} /></div>
-            <h2 className="text-3xl font-black flex items-center gap-5 mb-12 text-slate-900 uppercase">
-              <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl"><Plus size={28} /></div>
-              Knowledge Base Training
+            <div className="absolute top-0 right-0 p-12 opacity-5 rotate-12 pointer-events-none"><BookOpen size={100} /></div>
+            <h2 className="text-3xl font-black flex items-center gap-5 mb-10 text-slate-900 uppercase">
+              <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl"><Settings size={28} /></div>
+              กฎเกณฑ์การคำนวณเวลา (Topic Rules)
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
-                <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อหมวดหมู่งาน (Keyword)</label>
-                <input className="w-full px-8 py-6 bg-slate-50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xl focus:border-indigo-500 transition-all shadow-inner" placeholder="เช่น ตอบ Email ลูกค้า" id="nt-name" />
+                <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">คำสำคัญ (Keyword ในหัวข้องาน)</label>
+                <input className="w-full px-8 py-6 bg-slate-50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xl shadow-inner focus:border-indigo-500" placeholder="เช่น ตอบแชท, Email, Onboarding" id="nt-name" />
               </div>
               <div className="space-y-4">
-                <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">เวลามาตรฐาน (นาที/ชิ้น)</label>
+                <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">นาทีมาตรฐาน (ต่อชิ้น)</label>
                 <div className="flex gap-4">
-                  <input className="flex-1 px-8 py-6 bg-slate-50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xl focus:border-indigo-500 transition-all shadow-inner" placeholder="30" type="number" id="nt-mins" />
+                  <input className="flex-1 px-8 py-6 bg-slate-50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xl shadow-inner focus:border-indigo-500" placeholder="30" type="number" id="nt-mins" />
                   <button 
                     onClick={() => {
                       const n = document.getElementById('nt-name') as HTMLInputElement; 
@@ -518,9 +524,9 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
                         n.value=''; m.value=''; 
                       }
                     }}
-                    className="bg-indigo-600 text-white px-10 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-indigo-700 active:scale-95 transition-all"
+                    className="bg-indigo-600 text-white px-10 rounded-3xl font-black text-xs uppercase shadow-xl hover:bg-indigo-700 transition-all"
                   >
-                    สอนงานนี้
+                    บันทึกกฎ
                   </button>
                 </div>
               </div>
@@ -528,27 +534,23 @@ const WorkloadAnalytics: React.FC<WorkloadAnalyticsProps> = ({ evaluations, isMa
           </div>
           
           <div className="bg-white rounded-[4rem] border border-slate-200 overflow-hidden shadow-sm">
-             <div className="p-10 border-b border-slate-100 font-black text-[11px] uppercase text-slate-400 tracking-widest flex justify-between items-center">
-               <span>หมวดหมู่ที่คุณสอนไว้ ({taskConfigs.length})</span>
-               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Zap size={14} /></div>
+             <div className="p-10 bg-slate-50 border-b border-slate-100 font-black text-[11px] uppercase text-slate-400 tracking-widest flex justify-between items-center">
+               <span>กฎที่คุณสอนไว้แล้ว ({taskConfigs.length} รายการ)</span>
+               <ShieldCheck size={16} className="text-indigo-500" />
              </div>
              <div className="divide-y divide-slate-100">
-                {taskConfigs.length === 0 ? (
-                  <div className="p-20 text-center text-slate-300 font-black uppercase tracking-widest">ยังไม่มีข้อมูลการสอน AI</div>
-                ) : (
-                  taskConfigs.map(c => (
-                    <div key={c.id} className="p-8 flex justify-between items-center hover:bg-slate-50 transition-all group">
-                       <div className="flex items-center gap-6">
-                          <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm"><CheckCircle2 size={20} /></div>
-                          <div>
-                             <p className="font-black text-slate-900 text-xl tracking-tight">{c.name}</p>
-                             <p className="text-[10px] font-black text-indigo-500 uppercase mt-1 tracking-widest">{c.minutes} นาที ต่อ 1 รายการ</p>
-                          </div>
-                       </div>
-                       <button onClick={() => setTaskConfigs(taskConfigs.filter(item => item.id !== c.id))} className="p-4 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={24} /></button>
-                    </div>
-                  ))
-                )}
+                {taskConfigs.map(c => (
+                  <div key={c.id} className="p-8 flex justify-between items-center hover:bg-slate-50 transition-all group">
+                     <div className="flex items-center gap-6">
+                        <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all"><CheckCircle size={20} /></div>
+                        <div>
+                           <p className="font-black text-slate-900 text-xl tracking-tight">{c.name}</p>
+                           <p className="text-[10px] font-black text-indigo-500 uppercase mt-1 tracking-widest">{c.minutes} นาที / งาน</p>
+                        </div>
+                     </div>
+                     <button onClick={() => setTaskConfigs(taskConfigs.filter(item => item.id !== c.id))} className="p-4 text-slate-200 hover:text-rose-500 transition-colors"><Trash2 size={24} /></button>
+                  </div>
+                ))}
              </div>
           </div>
         </div>

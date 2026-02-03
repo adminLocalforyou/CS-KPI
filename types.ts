@@ -6,23 +6,6 @@ export interface StaffMember {
 }
 
 export type ProjectSubCategory = 'Restaurant' | 'Massage' | 'AI Receptionist';
-export type QuestionType = 'choice' | 'written';
-
-export interface TaskConfig {
-  id: string;
-  name: string;
-  minutes: number;
-}
-
-export interface WorkHistoryRecord {
-  id: string;
-  description: string;
-  owner: string;
-  date: string;
-  category: string;
-  minutes: number;
-  uploadedAt: string;
-}
 
 export interface GrowthMetrics {
   retention: {
@@ -41,23 +24,10 @@ export interface ProofRecord {
   staffId: string;
   date: string;
   description: string;
-  imageUrl?: string; // Base64 string
+  imageUrl?: string; 
   category: 'Positive' | 'Improvement' | 'Internal Note';
 }
 
-export interface PeerReviewRecord {
-  id: string;
-  targetStaffId: string;
-  reviewerName: string; // Optional or Anonymous
-  date: string;
-  timestamp: string;
-  teamworkScore: number;
-  helpfulnessScore: number;
-  communicationScore: number;
-  comment: string;
-}
-
-// Fixed: Added QAItem and QASection interfaces
 export interface QAItem {
   label: string;
   score: number;
@@ -77,38 +47,6 @@ export interface QARecord {
   date: string;
   sections: QASection[];
   overallPercentage: number;
-}
-
-// Fixed: Added TestQuestion interface
-export interface TestQuestion {
-  id: string;
-  type: QuestionType;
-  question: string;
-  correctAnswer?: string;
-  distractors?: string[];
-  maxPoints: number;
-}
-
-export interface AssessmentRecord {
-  id: string;
-  title: string;
-  date: string;
-  topic: string;
-  questions: TestQuestion[];
-}
-
-export interface TestSubmission {
-  id: string;
-  testId: string;
-  testTitle: string;
-  staffName: string;
-  autoScore: number;
-  manualScore: number;
-  totalPossiblePoints: number;
-  isGraded: boolean;
-  date: string;
-  answers: Record<string, string>;
-  managerFeedback?: string;
 }
 
 export interface EvaluationRecord {
@@ -132,7 +70,6 @@ export interface EvaluationRecord {
   responseTimeMin: number;
   projectCount: number;
   
-  latestTestScore?: number;
   daysToLive: number;
   stepsCompleted: number;
   
@@ -165,4 +102,67 @@ export interface MonthlySnapshotRecord {
   };
   growthMetrics: GrowthMetrics;
   overallScore: number;
+}
+
+// Added missing types below for Assessment and Workload systems
+
+export type QuestionType = 'choice' | 'written';
+
+export interface TestQuestion {
+  id: string;
+  type: QuestionType;
+  question: string;
+  correctAnswer?: string;
+  distractors?: string[];
+  maxPoints: number;
+}
+
+export interface AssessmentRecord {
+  id: string;
+  title: string;
+  topic: string;
+  date: string;
+  questions: TestQuestion[];
+}
+
+export interface TestSubmission {
+  id: string;
+  testId: string;
+  testTitle: string;
+  staffName: string;
+  autoScore: number;
+  manualScore: number;
+  totalPossiblePoints: number;
+  isGraded: boolean;
+  date: string;
+  answers: Record<string, string>;
+  managerFeedback?: string;
+}
+
+export interface PeerReviewRecord {
+  id: string;
+  targetStaffId: string;
+  reviewerName: string;
+  date: string;
+  timestamp: string;
+  teamworkScore: number;
+  helpfulnessScore: number;
+  communicationScore: number;
+  comment: string;
+}
+
+export interface TaskConfig {
+  id: string;
+  name: string;
+  minutes: number;
+}
+
+export interface WorkHistoryRecord {
+  id: string;
+  description: string;
+  owner: string;
+  date: string;
+  category: string;
+  minutes: number;
+  uploadedAt: string;
 }
