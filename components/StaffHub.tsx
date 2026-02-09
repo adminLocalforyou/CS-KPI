@@ -1,23 +1,19 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Trophy, 
-  TrendingUp, 
-  Activity, 
-  Zap, 
   Sparkles,
-  Briefcase,
-  Info,
+  Zap,
   UserCheck
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
-import { EvaluationRecord, QARecord, TestSubmission } from '../types.ts';
+import { EvaluationRecord, QARecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
 
 interface StaffHubProps {
   teamPerformance: { id: string, name: string, score: number }[];
   evaluations: EvaluationRecord[];
   qaRecords: QARecord[];
-  testSubmissions: TestSubmission[];
 }
 
 const BUDDY_PAIRS: Record<string, string | null> = {
@@ -30,7 +26,7 @@ const BUDDY_PAIRS: Record<string, string | null> = {
   'Pume': null
 };
 
-const StaffHub: React.FC<StaffHubProps> = ({ teamPerformance, evaluations, qaRecords, testSubmissions }) => {
+const StaffHub: React.FC<StaffHubProps> = ({ teamPerformance, evaluations, qaRecords }) => {
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState<Record<string, string>>({});
   const [workloadReasoning, setWorkloadReasoning] = useState<Record<string, string>>({});
@@ -116,7 +112,7 @@ const StaffHub: React.FC<StaffHubProps> = ({ teamPerformance, evaluations, qaRec
     fetchInsights();
   }, [workloadData, teamPerformance]);
 
-  const renderWorkloadItem = (data: typeof workloadData[0]) => {
+  const renderWorkloadItem = (data: any) => {
     const buddyName = BUDDY_PAIRS[data.name];
     let status = 'Balanced';
     if (buddyName) {

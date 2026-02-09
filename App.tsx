@@ -1,16 +1,18 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  LayoutDashboard, Users, User, PlusCircle, Clock, 
-  CheckCircle2, Target, ClipboardList, Store, Sparkles, 
-  Zap, Save, FileText, Activity, ShieldCheck, 
-  FileSearch, ChevronDown, Percent, ArrowLeft, FileCheck, 
-  CalendarDays, Trophy, Camera, Smile, Timer, Trash2, Building2,
-  Stethoscope, Bot, RefreshCcw, UserMinus, Lock, LogOut, Database,
-  UserRound, ArrowLeftCircle, X, Menu
+  LayoutDashboard, User, PlusCircle, 
+  Target, Zap, Activity, ShieldCheck, 
+  Camera, Smile, Timer,
+  Lock, LogOut, Database,
+  UserRound, ArrowLeftCircle, Menu,
+  ArrowRight, ExternalLink, Store, Stethoscope, Bot, Archive, Sparkles
 } from 'lucide-react';
 import { TEAM_MEMBERS, INITIAL_EVALUATIONS } from './constants.tsx';
-import { EvaluationRecord, QARecord, ProofRecord, GrowthMetrics, MonthlySnapshotRecord } from './types.ts';
+import { 
+  EvaluationRecord, QARecord, ProofRecord, GrowthMetrics, 
+  MonthlySnapshotRecord
+} from './types.ts';
 
 // Components
 import StatCard from './components/StatCard.tsx';
@@ -18,11 +20,11 @@ import EvaluationForm from './components/EvaluationForm.tsx';
 import SidebarItem from './components/SidebarItem.tsx';
 import IndividualDeepDive from './components/IndividualDeepDive.tsx';
 import QAChecklist from './components/QAChecklist.tsx';
-import StaffHub from './components/StaffHub.tsx';
 import ProofVault from './components/ProofVault.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
+import StaffHub from './components/StaffHub.tsx';
 
-const APP_VERSION = "5.0.0-LITE";
+const APP_VERSION = "5.3.1-LITE";
 
 const loadState = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -34,30 +36,33 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluate' | 'individual' | 'qa' | 'proof' | 'masterRecord' | 'publicStaffAnalysis'>('dashboard');
+  type Tab = 'dashboard' | 'evaluate' | 'individual' | 'qa' | 'proof' | 'masterRecord' | 'publicStaffAnalysis';
+  
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isManager, setIsManager] = useState(false);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState('');
-  const [pendingTab, setPendingTab] = useState<any>(null);
+  const [pendingTab, setPendingTab] = useState<Tab | null>(null);
 
   const [selectedStaffId, setSelectedStaffId] = useState<string>(TEAM_MEMBERS[0]?.id || '1');
   const [publicActiveStaffId, setPublicActiveStaffId] = useState<string | null>(null);
   
+  // Data States
   const [evaluations, setEvaluations] = useState<EvaluationRecord[]>(() => loadState('cs_evaluations_v3', INITIAL_EVALUATIONS));
   const [qaRecords, setQaRecords] = useState<QARecord[]>(() => loadState('cs_qa_records_v1', []));
   const [proofRecords, setProofRecords] = useState<ProofRecord[]>(() => loadState('cs_proof_records_v1', []));
   const [monthlySnapshots, setMonthlySnapshots] = useState<MonthlySnapshotRecord[]>(() => loadState('cs_monthly_snapshots_v1', []));
   
   const [projectSLA, setProjectSLA] = useState(() => loadState('cs_project_sla_v2', { 
-    restaurant: { total: 0, met: 0, target: 10 }, 
-    massage: { total: 0, met: 0, target: 15 }, 
-    ai: { total: 0, met: 0, target: 3 } 
+    restaurant: { total: 0, met: 0 }, 
+    massage: { total: 0, met: 0 }, 
+    ai: { total: 0, met: 0 } 
   }));
   
   const [otherKPIs, setOtherKPIs] = useState(() => loadState('cs_other_kpis_v1', { 
     responseSpeed: { total: 0, met: 0 }, 
-    csat: { total: 0, met: 0 } 
+    csat: { total: 1, met: 0 } 
   }));
 
   const [growthMetrics, setGrowthMetrics] = useState<GrowthMetrics>(() => loadState('cs_growth_metrics_v1', {
@@ -75,8 +80,8 @@ const App: React.FC = () => {
     localStorage.setItem('cs_monthly_snapshots_v1', JSON.stringify(monthlySnapshots));
   }, [evaluations, qaRecords, proofRecords, projectSLA, otherKPIs, growthMetrics, monthlySnapshots]);
 
-  const handleTabSwitch = (tab: any) => {
-    const managerTabs = ['evaluate', 'qa', 'individual', 'proof', 'masterRecord'];
+  const handleTabSwitch = (tab: Tab) => {
+    const managerTabs: Tab[] = ['evaluate', 'qa', 'individual', 'proof', 'masterRecord'];
     if (managerTabs.includes(tab) && !isManager) {
       setPendingTab(tab);
       setShowPasscodeModal(true);
@@ -130,19 +135,13 @@ const App: React.FC = () => {
     const rPct = projectSLA.restaurant.total > 0 ? (projectSLA.restaurant.met / projectSLA.restaurant.total) * 100 : 0;
     const mPct = projectSLA.massage.total > 0 ? (projectSLA.massage.met / projectSLA.massage.total) * 100 : 0;
     const aPct = projectSLA.ai.total > 0 ? (projectSLA.ai.met / projectSLA.ai.total) * 100 : 0;
-    const projectSlaTotal = (rPct + mPct + aPct) / 3;
     
-    const csatAvg = otherKPIs.csat.met || 0;
-    const csatPct = otherKPIs.csat.total > 0 ? (csatAvg / 5) * 100 : 0;
+    const totalMet = projectSLA.restaurant.met + projectSLA.massage.met + projectSLA.ai.met;
+    const totalPossible = projectSLA.restaurant.total + projectSLA.massage.total + projectSLA.ai.total;
+    const overallSlaPct = totalPossible > 0 ? Math.round((totalMet / totalPossible) * 100) : 0;
     
+    const csatAvg = Number(otherKPIs.csat.met) || 0;
     const avgMinutes = otherKPIs.responseSpeed.met;
-    const speedScore = otherKPIs.responseSpeed.total > 0 
-      ? Math.max(0, Math.min(100, 100 - (avgMinutes - 5) * 10))
-      : 0;
-
-    const { retention, returnRate } = growthMetrics;
-    const retentionPct = retention.startCount > 0 ? ((retention.endCount - retention.newCount) / retention.startCount) * 100 : 0;
-    const returnRatePct = returnRate.totalCount > 0 ? (returnRate.returningCount / returnRate.totalCount) * 100 : 0;
     
     const teamAvg = (evaluations.length > 0 && teamPerformanceData.length > 0) 
       ? teamPerformanceData.reduce((a, b) => a + b.score, 0) / teamPerformanceData.length 
@@ -152,266 +151,309 @@ const App: React.FC = () => {
       ? Math.round(qaRecords.reduce((a, b) => a + b.overallPercentage, 0) / qaRecords.length)
       : 0;
 
-    const overall = Math.round((teamAvg + csatPct + speedScore + projectSlaTotal + retentionPct + returnRatePct + globalQaAvg) / 7);
+    const overall = Math.round((teamAvg + (csatAvg/5*100) + overallSlaPct + globalQaAvg) / 4);
 
     return { 
       overallPerf: isNaN(overall) ? 0 : overall, 
-      overallSla: Math.round(projectSlaTotal), 
-      csatPct: Math.round(csatPct), 
+      overallSla: overallSlaPct, 
       csatAvg: csatAvg,
       avgSpeed: avgMinutes,
-      retentionPct: Math.max(0, Math.round(retentionPct)),
-      returnRatePct: Math.round(returnRatePct),
-      globalQaAvg,
-      rPct: Math.round(rPct), 
-      mPct: Math.round(mPct), 
-      aPct: Math.round(aPct)
+      rPct, mPct, aPct
     };
-  }, [projectSLA, otherKPIs, growthMetrics, teamPerformanceData, evaluations, qaRecords]);
+  }, [evaluations, projectSLA, otherKPIs, teamPerformanceData, qaRecords]);
 
-  const updateProjectMetric = (project: keyof typeof projectSLA, field: 'total' | 'met', val: number) => {
-    setProjectSLA(prev => ({
-      ...prev,
-      [project]: { ...prev[project], [field]: val }
-    }));
-  };
+  const saveMonthlySnapshot = () => {
+    const monthYear = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const confirmSave = confirm(`บันทึก Snapshot สำหรับเดือน ${monthYear} ลงใน Master Record?\nข้อมูล SLA และ KPI ทั้งหมดจะถูกเก็บเป็นประวัติครับ`);
+    if (!confirmSave) return;
 
-  const updateOtherKPI = (kpi: keyof typeof otherKPIs, val: number) => {
-    setOtherKPIs(prev => ({
-      ...prev,
-      [kpi]: { total: 1, met: val }
-    }));
+    const newSnapshot: MonthlySnapshotRecord = {
+      id: `snapshot-${Date.now()}`,
+      type: 'monthly_snapshot',
+      date: new Date().toISOString().split('T')[0],
+      monthYear,
+      projectSLA: JSON.parse(JSON.stringify(projectSLA)),
+      otherKPIs: JSON.parse(JSON.stringify(otherKPIs)),
+      growthMetrics: JSON.parse(JSON.stringify(growthMetrics)),
+      overallScore: globalStats.overallPerf
+    };
+
+    setMonthlySnapshots([...monthlySnapshots, newSnapshot]);
+    alert("🚀 บันทึกข้อมูลเดือนนี้ลง Master Record สำเร็จ!");
   };
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
-      {showPasscodeModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
-          <div className="bg-white p-12 rounded-[3rem] shadow-2xl max-w-sm w-full text-center space-y-8">
-            <div className="w-20 h-20 bg-blue-600 text-white rounded-[2rem] flex items-center justify-center mx-auto shadow-xl"><Lock size={40} /></div>
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-slate-900">Manager Access</h3>
-              <p className="text-slate-400 font-bold text-sm">กรุณากรอกรหัสผ่านเพื่อเข้าสู่โหมดจัดการ</p>
-            </div>
-            <input 
-              autoFocus type="password" maxLength={4} value={passcodeInput}
-              onChange={(e) => setPasscodeInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && verifyPasscode()}
-              placeholder="● ● ● ●"
-              className="w-full text-center text-3xl font-black tracking-[1em] p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl outline-none focus:border-blue-500"
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => setShowPasscodeModal(false)} className="py-4 bg-slate-100 text-slate-500 font-black rounded-2xl">Cancel</button>
-              <button onClick={verifyPasscode} className="py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg">Verify</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 transition-all duration-300 flex flex-col z-50 shadow-2xl`}>
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
+      <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 h-full transition-all duration-300 flex flex-col shadow-2xl z-50`}>
         <div className="p-6 flex items-center gap-4">
-          <div className="bg-blue-600 p-2 rounded-lg shadow-lg"><Target className="text-white" size={24} /></div>
-          {isSidebarOpen && <h1 className="text-white font-black text-lg tracking-tight">CS Portal</h1>}
-        </div>
-        <nav className="flex-1 mt-6 px-3 space-y-2 overflow-y-auto custom-scrollbar">
-          <div className="space-y-1">
-            {isSidebarOpen && <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4 ml-4">Public Area</p>}
-            <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('dashboard')} />
-            <SidebarItem id="publicStaffAnalysis" label="My Performance" icon={UserRound} active={activeTab === 'publicStaffAnalysis'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicStaffAnalysis')} />
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+            <Zap size={20} />
           </div>
-          <div className="h-px bg-slate-800/50 mx-4 my-4"></div>
-          <div className="space-y-1">
-            {isSidebarOpen && <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4 ml-4">Management</p>}
-            <SidebarItem id="masterRecord" label="Master Record" icon={Database} active={activeTab === 'masterRecord'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('masterRecord')} isLocked={!isManager} />
-            <SidebarItem id="evaluate" label="Performance Log" icon={PlusCircle} active={activeTab === 'evaluate'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('evaluate')} isLocked={!isManager} />
-            <SidebarItem id="qa" label="QA Checks" icon={FileSearch} active={activeTab === 'qa'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('qa')} isLocked={!isManager} />
-            <SidebarItem id="individual" label="Staff Analytics" icon={User} active={activeTab === 'individual'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('individual')} isLocked={!isManager} />
-            <SidebarItem id="proof" label="Proof Vault" icon={Camera} active={activeTab === 'proof'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('proof')} isLocked={!isManager} />
+          {isSidebarOpen && <h1 className="font-black text-white text-lg tracking-tight">CS PORTAL <span className="text-[10px] text-blue-400 block -mt-1">V {APP_VERSION}</span></h1>}
+        </div>
+
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
+          <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} active={activeTab === 'dashboard'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('dashboard')} />
+          
+          <button 
+            onClick={() => window.open('https://task-time-calculation.vercel.app/', '_blank')}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-indigo-600/20 hover:text-white ${!isSidebarOpen ? 'justify-center' : ''}`}
+          >
+            <div className="flex items-center gap-3">
+              <Timer size={20} className="text-indigo-400 group-hover:text-white" />
+              {isSidebarOpen && <span className="font-bold text-sm tracking-tight">Task Calculator</span>}
+            </div>
+            {isSidebarOpen && <ExternalLink size={12} className="opacity-40 group-hover:opacity-100" />}
+          </button>
+
+          <SidebarItem id="publicStaffAnalysis" label="Personal Insight" icon={UserRound} active={activeTab === 'publicStaffAnalysis'} collapsed={!isSidebarOpen} onClick={() => handleTabSwitch('publicStaffAnalysis')} />
+          
+          <div className="pt-6 pb-2">
+            {isSidebarOpen && <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Management</p>}
+            <SidebarItem id="evaluate" label="Performance Log" icon={PlusCircle} active={activeTab === 'evaluate'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('evaluate')} />
+            <SidebarItem id="qa" label="QA Audit" icon={ShieldCheck} active={activeTab === 'qa'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('qa')} />
+            <SidebarItem id="individual" label="Deep Dive" icon={User} active={activeTab === 'individual'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('individual')} />
+            <SidebarItem id="proof" label="Proof Vault" icon={Camera} active={activeTab === 'proof'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('proof')} />
+            <SidebarItem id="masterRecord" label="Master Record" icon={Database} active={activeTab === 'masterRecord'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('masterRecord')} />
           </div>
         </nav>
-        <div className="p-4 border-t border-slate-800 space-y-2">
-          {isSidebarOpen && <p className="text-[9px] font-black text-slate-700 text-center uppercase mb-2">Build {APP_VERSION}</p>}
-          {isManager && isSidebarOpen && (
-            <button onClick={() => setIsManager(false)} className="w-full flex items-center gap-3 p-3 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest">
-              <LogOut size={16} /> Logout Manager
-            </button>
-          )}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all">
-            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+
+        <div className="p-4 border-t border-slate-800">
+           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors">
+              <Menu size={20} />
+              {isSidebarOpen && <span className="text-sm font-bold">Collapse Sidebar</span>}
+           </button>
+           {isManager && (
+             <button onClick={() => setIsManager(false)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors mt-2">
+                <LogOut size={20} />
+                {isSidebarOpen && <span className="text-sm font-bold">Lock Console</span>}
+             </button>
+           )}
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto relative">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className={`text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest ${isManager ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-              {isManager ? 'Manager Mode' : 'View Only'}
-            </span>
-            <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">{activeTab}</h2>
-          </div>
-          <div className="flex items-center gap-4">
-            {!isManager && <button onClick={() => setShowPasscodeModal(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black shadow-lg"><Lock size={14} /> Unlock Manager</button>}
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black shadow-lg transition-all ${isManager ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white'}`}>
-              {isManager ? 'ADM' : 'GST'}
-            </div>
-          </div>
+      <main className="flex-1 overflow-y-auto custom-scrollbar relative">
+        <header className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-md px-10 py-6 flex items-center justify-between">
+           <div className="flex items-center gap-4">
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{activeTab.replace(/([A-Z])/g, ' $1')}</h2>
+              {activeTab === 'dashboard' && <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full border border-emerald-100 uppercase tracking-widest">Live Sync</span>}
+           </div>
+           {activeTab === 'dashboard' && !isManager && (
+             <button onClick={() => { setPendingTab('dashboard'); setShowPasscodeModal(true); }} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl">
+                <Lock size={14} /> Unlock Manager Mode
+             </button>
+           )}
         </header>
 
-        <div className="p-8 max-w-7xl mx-auto w-full pb-32">
-          {activeTab === 'dashboard' && (
-            <div className="space-y-12 animate-in fade-in duration-700">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard label="Overall Index" value={`${globalStats.overallPerf}%`} sub="Global Weighted Avg" icon={Activity} color="blue" />
-                <StatCard label="Team QA Avg" value={`${globalStats.globalQaAvg}%`} sub="Quality Consistency" icon={FileSearch} color="indigo" />
-                <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="Building Volume Met" icon={Zap} color="orange" />
-                <StatCard label="Retention" value={`${globalStats.retentionPct}%`} sub="Customer Loyalty" icon={UserMinus} color="purple" />
-                <StatCard label="Return Rate" value={`${globalStats.returnRatePct}%`} sub="Repeat Business" icon={RefreshCcw} color="orange" />
-                <StatCard label="CSAT Index" value={`${globalStats.csatAvg.toFixed(1)} / 5`} sub="Satisfaction Index" icon={Smile} color="emerald" />
-                <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="Daily Operational Speed" icon={Clock} color="purple" />
-              </div>
+        <div className="px-10 pb-20">
+           {activeTab === 'dashboard' && (
+             <div className="space-y-12">
+                {/* Top Stat Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                   <StatCard label="Overall Index" value={`${globalStats.overallPerf}%`} sub="GLOBAL WEIGHTED AVG" icon={Activity} color="indigo" />
+                   <StatCard label="Team QA Avg" value={`${Math.round(qaRecords.reduce((a,b)=>a+b.overallPercentage,0)/(qaRecords.length||1))}%`} sub="QUALITY CONSISTENCY" icon={ShieldCheck} color="blue" />
+                   <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="BUILDING VOLUME MET" icon={Target} color="orange" />
+                   <StatCard label="Retention" value={`${growthMetrics.retention.startCount > 0 ? Math.round((growthMetrics.retention.endCount/growthMetrics.retention.startCount)*100) : 0}%`} sub="CUSTOMER LOYALTY" icon={User} color="purple" />
+                </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
-                <div className="lg:col-span-3 space-y-10">
-                  <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <StatCard label="Return Rate" value={`${growthMetrics.returnRate.totalCount > 0 ? Math.round((growthMetrics.returnRate.returningCount/growthMetrics.returnRate.totalCount)*100) : 0}%`} sub="REPEAT BUSINESS" icon={Zap} color="orange" />
+                  <StatCard label="CSAT Index" value={`${globalStats.csatAvg.toFixed(1)}/5`} sub="SATISFACTION INDEX" icon={Smile} color="emerald" />
+                  <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="DAILY OPERATIONAL SPEED" icon={Timer} color="purple" />
+                </div>
+
+                {/* Project SLA Status Section (Restored from Image) */}
+                <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-slate-100 space-y-10">
+                   <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-3xl font-black text-slate-900 tracking-tight">Project SLA Status</h3>
-                        <p className="text-slate-400 font-bold text-sm">Real-time status of current building SLA</p>
+                         <h3 className="text-4xl font-black text-slate-800 tracking-tight">Project SLA Status</h3>
+                         <p className="text-slate-400 font-bold text-sm mt-1">Real-time status of current building SLA</p>
                       </div>
-                      <div className="flex items-center gap-4 bg-slate-50 px-6 py-3 rounded-3xl border border-slate-100">
-                        <div className="text-right">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overall Met</p>
-                          <p className="text-2xl font-black text-blue-600">{globalStats.overallSla}%</p>
+                      <div className="flex items-center gap-6">
+                        {isManager && (
+                          <button 
+                            onClick={saveMonthlySnapshot} 
+                            className="bg-blue-600 text-white flex items-center justify-center p-4 rounded-3xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all group"
+                            title="บันทึกข้อมูลเดือนนี้ลง Master Record"
+                          >
+                             <Sparkles size={28} className="group-hover:scale-110 transition-transform" />
+                          </button>
+                        )}
+                        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                           <div className="text-right">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overall Met</p>
+                              <p className="text-3xl font-black text-blue-600">{globalStats.overallSla}%</p>
+                           </div>
+                           <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Zap size={24} /></div>
                         </div>
-                        <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg"><Sparkles size={20} /></div>
                       </div>
-                    </div>
+                   </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6 group hover:bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="flex items-center gap-4">
-                          <div className="p-4 bg-rose-50 text-rose-500 rounded-[2rem] shadow-sm"><Store size={24} /></div>
-                          <h4 className="font-black text-slate-700">Restaurant</h4>
-                        </div>
-                        <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.rPct}%</p>
-                        <div className="space-y-4 pt-2 border-t border-slate-100">
-                          {isManager ? (
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total</label>
-                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none" value={projectSLA.restaurant.total} onChange={(e) => updateProjectMetric('restaurant', 'total', parseInt(e.target.value) || 0)} />
-                              </div>
-                              <div>
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Met</label>
-                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none text-blue-600" value={projectSLA.restaurant.met} onChange={(e) => updateProjectMetric('restaurant', 'met', parseInt(e.target.value) || 0)} />
-                              </div>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      {/* Restaurant Card */}
+                      <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8 group hover:border-blue-200 transition-all">
+                         <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-rose-50 text-rose-500 rounded-[1.5rem] flex items-center justify-center"><Store size={28} /></div>
+                            <h4 className="font-black text-slate-800 text-xl">Restaurant</h4>
+                         </div>
+                         <div className="text-6xl font-black text-slate-900 tracking-tighter">{Math.round(globalStats.rPct)}%</div>
+                         <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-8">
+                            <div className="space-y-1">
+                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total</label>
+                               <input type="number" value={projectSLA.restaurant.total} onChange={(e) => setProjectSLA({...projectSLA, restaurant: {...projectSLA.restaurant, total: parseInt(e.target.value)||0}})} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-black text-blue-600 outline-none focus:bg-white" />
                             </div>
-                          ) : (
-                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                              <span className="text-slate-400">Volume: {projectSLA.restaurant.total}</span>
-                              <span className="text-blue-500">Met: {projectSLA.restaurant.met}</span>
+                            <div className="space-y-1">
+                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Met</label>
+                               <input type="number" value={projectSLA.restaurant.met} onChange={(e) => setProjectSLA({...projectSLA, restaurant: {...projectSLA.restaurant, met: parseInt(e.target.value)||0}})} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-black text-blue-600 outline-none focus:bg-white" />
                             </div>
-                          )}
+                         </div>
+                      </div>
+
+                      {/* Massage Card */}
+                      <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8 group hover:border-blue-200 transition-all">
+                         <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-[1.5rem] flex items-center justify-center"><Stethoscope size={28} /></div>
+                            <h4 className="font-black text-slate-800 text-xl">Massage</h4>
+                         </div>
+                         <div className="text-6xl font-black text-slate-900 tracking-tighter">{Math.round(globalStats.mPct)}%</div>
+                         <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-8">
+                            <div className="space-y-1">
+                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total</label>
+                               <input type="number" value={projectSLA.massage.total} onChange={(e) => setProjectSLA({...projectSLA, massage: {...projectSLA.massage, total: parseInt(e.target.value)||0}})} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-black text-blue-600 outline-none focus:bg-white" />
+                            </div>
+                            <div className="space-y-1">
+                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Met</label>
+                               <input type="number" value={projectSLA.massage.met} onChange={(e) => setProjectSLA({...projectSLA, massage: {...projectSLA.massage, met: parseInt(e.target.value)||0}})} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-black text-blue-600 outline-none focus:bg-white" />
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* AI Card */}
+                      <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8 group hover:border-blue-200 transition-all">
+                         <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-blue-50 text-blue-500 rounded-[1.5rem] flex items-center justify-center"><Bot size={28} /></div>
+                            <h4 className="font-black text-slate-800 text-xl">AI Receptionist</h4>
+                         </div>
+                         <div className="text-6xl font-black text-slate-900 tracking-tighter">{Math.round(globalStats.aPct)}%</div>
+                         <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-8">
+                            <div className="space-y-1">
+                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total</label>
+                               <input type="number" value={projectSLA.ai.total} onChange={(e) => setProjectSLA({...projectSLA, ai: {...projectSLA.ai, total: parseInt(e.target.value)||0}})} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-black text-blue-600 outline-none focus:bg-white" />
+                            </div>
+                            <div className="space-y-1">
+                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Met</label>
+                               <input type="number" value={projectSLA.ai.met} onChange={(e) => setProjectSLA({...projectSLA, ai: {...projectSLA.ai, met: parseInt(e.target.value)||0}})} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-black text-blue-600 outline-none focus:bg-white" />
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   {/* Other Live KPI Inputs */}
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-10 border-t border-slate-50">
+                      <div className="space-y-6">
+                        <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Smile size={14}/> Satisfaction & Speed</h5>
+                        <div className="grid grid-cols-2 gap-6">
+                           <div className="bg-slate-50 p-6 rounded-3xl">
+                              <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">Avg Response (Min)</label>
+                              <input type="number" value={otherKPIs.responseSpeed.met} onChange={(e) => setOtherKPIs({...otherKPIs, responseSpeed: {...otherKPIs.responseSpeed, met: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-2xl outline-none" />
+                           </div>
+                           <div className="bg-slate-50 p-6 rounded-3xl">
+                              <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">CSAT Score (0-5)</label>
+                              <input type="number" step="0.1" max="5" value={otherKPIs.csat.met} onChange={(e) => setOtherKPIs({...otherKPIs, csat: {...otherKPIs.csat, met: parseFloat(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-2xl outline-none" />
+                           </div>
                         </div>
                       </div>
-                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6 group hover:bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="flex items-center gap-4">
-                          <div className="p-4 bg-emerald-50 text-emerald-500 rounded-[2rem] shadow-sm"><Stethoscope size={24} /></div>
-                          <h4 className="font-black text-slate-700">Massage</h4>
-                        </div>
-                        <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.mPct}%</p>
-                        <div className="space-y-4 pt-2 border-t border-slate-100">
-                          {isManager ? (
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total</label>
-                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none" value={projectSLA.massage.total} onChange={(e) => updateProjectMetric('massage', 'total', parseInt(e.target.value) || 0)} />
+                      <div className="space-y-6">
+                        <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><User size={14}/> Growth Stats</h5>
+                        <div className="grid grid-cols-2 gap-6">
+                           <div className="bg-slate-50 p-6 rounded-3xl">
+                              <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">Retention (End/Start)</label>
+                              <div className="flex gap-2">
+                                <input type="number" placeholder="End" value={growthMetrics.retention.endCount} onChange={(e) => setGrowthMetrics({...growthMetrics, retention: {...growthMetrics.retention, endCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
+                                <input type="number" placeholder="Start" value={growthMetrics.retention.startCount} onChange={(e) => setGrowthMetrics({...growthMetrics, retention: {...growthMetrics.retention, startCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
                               </div>
-                              <div>
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Met</label>
-                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none text-blue-600" value={projectSLA.massage.met} onChange={(e) => updateProjectMetric('massage', 'met', parseInt(e.target.value) || 0)} />
+                           </div>
+                           <div className="bg-slate-50 p-6 rounded-3xl">
+                              <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">Return (Returning/Total)</label>
+                              <div className="flex gap-2">
+                                <input type="number" placeholder="Ret" value={growthMetrics.returnRate.returningCount} onChange={(e) => setGrowthMetrics({...growthMetrics, returnRate: {...growthMetrics.returnRate, returningCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
+                                <input type="number" placeholder="Tot" value={growthMetrics.returnRate.totalCount} onChange={(e) => setGrowthMetrics({...growthMetrics, returnRate: {...growthMetrics.returnRate, totalCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
                               </div>
-                            </div>
-                          ) : (
-                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                              <span className="text-slate-400">Volume: {projectSLA.massage.total}</span>
-                              <span className="text-blue-500">Met: {projectSLA.massage.met}</span>
-                            </div>
-                          )}
+                           </div>
                         </div>
                       </div>
-                      <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6 group hover:bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="flex items-center gap-4">
-                          <div className="p-4 bg-blue-50 text-blue-500 rounded-[2rem] shadow-sm"><Bot size={24} /></div>
-                          <h4 className="font-black text-slate-700 leading-tight">AI<br/>Receptionist</h4>
-                        </div>
-                        <p className="text-5xl font-black text-slate-900 tracking-tighter">{globalStats.aPct}%</p>
-                        <div className="space-y-4 pt-2 border-t border-slate-100">
-                          {isManager ? (
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total</label>
-                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none" value={projectSLA.ai.total} onChange={(e) => updateProjectMetric('ai', 'total', parseInt(e.target.value) || 0)} />
-                              </div>
-                              <div>
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Met</label>
-                                <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-1 text-xs font-black outline-none text-blue-600" value={projectSLA.ai.met} onChange={(e) => updateProjectMetric('ai', 'met', parseInt(e.target.value) || 0)} />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                              <span className="text-slate-400">Volume: {projectSLA.ai.total}</span>
-                              <span className="text-blue-500">Met: {projectSLA.ai.met}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                   </div>
+                   {isManager && (
+                     <div className="pt-6 flex justify-center">
+                        <button onClick={saveMonthlySnapshot} className="flex items-center gap-3 bg-slate-900 text-white px-10 py-5 rounded-[2.5rem] font-black text-sm uppercase tracking-[0.2em] shadow-2xl hover:bg-black transition-all active:scale-95">
+                           <Archive size={20} /> Archive Complete Snapshot
+                        </button>
+                     </div>
+                   )}
                 </div>
-              </div>
-            </div>
-          )}
 
-          {activeTab === 'evaluate' && <EvaluationForm projectSLA={projectSLA} submissions={[]} onAdd={(records) => { setEvaluations([...evaluations, ...records]); setActiveTab('dashboard'); }} />}
-          {activeTab === 'qa' && <QAChecklist onSave={(r) => { setQaRecords([...qaRecords, r]); setActiveTab('dashboard'); }} />}
-          {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([p, ...proofRecords])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
-          {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} submissions={[]} assessments={[]} monthlySnapshots={monthlySnapshots} onClearAll={handleClearAllData} />}
-          
-          {activeTab === 'publicStaffAnalysis' && !publicActiveStaffId && (
-            <div className="space-y-12 animate-in fade-in duration-500">
-              <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm space-y-4">
-                <div className="flex items-center gap-6">
-                  <div className="p-5 bg-indigo-600 text-white rounded-[2rem] shadow-xl"><Users size={32} /></div>
+                <StaffHub teamPerformance={teamPerformanceData} evaluations={evaluations} qaRecords={qaRecords} />
+             </div>
+           )}
+
+           {activeTab === 'publicStaffAnalysis' && (
+             <div className="space-y-10">
+                {!publicActiveStaffId ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {TEAM_MEMBERS.map(m => (
+                      <button key={m.id} onClick={() => setPublicActiveStaffId(m.id)} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all text-left group">
+                         <div className="flex items-center gap-4">
+                           <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-xl group-hover:bg-blue-600 transition-colors">{m.name.charAt(0)}</div>
+                           <div>
+                             <h4 className="font-black text-slate-800 text-xl">{m.name}</h4>
+                             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{m.role}</p>
+                           </div>
+                         </div>
+                         <div className="mt-6 flex items-center justify-between text-[10px] font-black text-blue-500 uppercase tracking-widest border-t border-slate-50 pt-6">
+                            View Personal Data Vault <ArrowRight size={14} />
+                         </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
                   <div>
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">Staff Directory</h3>
-                    <p className="text-slate-400 font-bold text-sm">เลือกสมาชิกในทีมเพื่อดูข้อมูลประสิทธิภาพรายบุคคล</p>
+                    <button onClick={() => setPublicActiveStaffId(null)} className="mb-8 flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
+                      <ArrowLeftCircle size={16} /> กลับหน้าเลือกรายชื่อ
+                    </button>
+                    <IndividualDeepDive staffId={publicActiveStaffId} evaluations={evaluations} proofs={proofRecords} peerReviews={[]} qaRecords={qaRecords} onStaffChange={() => {}} mode="public" />
                   </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {TEAM_MEMBERS.map(member => (
-                  <button key={member.id} onClick={() => setPublicActiveStaffId(member.id)} className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm hover:shadow-2xl transition-all flex flex-col items-center text-center space-y-6 group">
-                    <div className="w-24 h-24 rounded-[2.5rem] bg-slate-900 text-white flex items-center justify-center text-3xl font-black group-hover:bg-blue-600 transition-colors">{member.name.substring(0, 2).toUpperCase()}</div>
-                    <div>
-                      <h4 className="text-xl font-black text-slate-900">{member.name}</h4>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{member.role}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+                )}
+             </div>
+           )}
 
-          {(activeTab === 'individual' || (activeTab === 'publicStaffAnalysis' && publicActiveStaffId)) && (
-            <div className="space-y-6">
-              <button onClick={() => { if (activeTab === 'publicStaffAnalysis') setPublicActiveStaffId(null); }} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-black text-[10px] uppercase tracking-widest transition-all mb-4"><ArrowLeftCircle size={16} /> Back</button>
-              <IndividualDeepDive staffId={activeTab === 'publicStaffAnalysis' ? publicActiveStaffId! : selectedStaffId} evaluations={evaluations} proofs={proofRecords} peerReviews={[]} submissions={[]} qaRecords={qaRecords} onStaffChange={setSelectedStaffId} mode={activeTab === 'publicStaffAnalysis' ? 'public' : 'manager'} />
-            </div>
-          )}
+           {activeTab === 'evaluate' && <EvaluationForm onAdd={(recs) => setEvaluations([...evaluations, ...recs])} projectSLA={projectSLA} />}
+           {activeTab === 'qa' && <QAChecklist onSave={(rec) => setQaRecords([...qaRecords, rec])} />}
+           {activeTab === 'individual' && <IndividualDeepDive staffId={selectedStaffId} evaluations={evaluations} proofs={proofRecords} peerReviews={[]} qaRecords={qaRecords} onStaffChange={setSelectedStaffId} />}
+           {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([...proofRecords, p])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
+           {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} monthlySnapshots={monthlySnapshots} onClearAll={handleClearAllData} />}
         </div>
       </main>
+
+      {showPasscodeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-sm text-center space-y-8 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
+                 <Lock size={32} />
+              </div>
+              <div className="space-y-2">
+                 <h3 className="text-2xl font-black text-slate-900 uppercase">Manager Access</h3>
+                 <p className="text-slate-400 font-bold text-sm">กรุณาใส่รหัสผ่านเพื่อเข้าใช้งานพื้นที่ควบคุม</p>
+              </div>
+              <div className="space-y-4">
+                 <input type="password" value={passcodeInput} onChange={(e) => setPasscodeInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && verifyPasscode()} placeholder="••••" className="w-full text-center bg-slate-50 border border-slate-200 p-5 rounded-2xl font-black text-3xl outline-none" />
+                 <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => { setShowPasscodeModal(false); setPendingTab(null); setPasscodeInput(''); }} className="py-4 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-xs">Cancel</button>
+                    <button onClick={verifyPasscode} className="py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg shadow-blue-500/20">Authorize</button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

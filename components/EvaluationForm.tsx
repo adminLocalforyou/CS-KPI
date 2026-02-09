@@ -5,8 +5,6 @@ import {
   Save, 
   ShieldCheck, 
   Zap, 
-  Sparkles, 
-  UserCheck, 
   BarChart3, 
   Rocket, 
   LayoutGrid
@@ -16,7 +14,6 @@ import { EvaluationRecord } from '../types.ts';
 
 interface EvaluationFormProps {
   onAdd: (records: EvaluationRecord[]) => void;
-  submissions: any[];
   projectSLA: {
     restaurant: { total: number; met: number };
     massage: { total: number; met: number };

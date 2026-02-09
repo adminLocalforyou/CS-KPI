@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer
@@ -6,7 +7,7 @@ import {
 import { EvaluationRecord, ProofRecord, QARecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
 import { 
-  Target, Activity, Clock, ShieldCheck, Zap, GraduationCap, FileCheck, Lock, KeyRound, AlertCircle, FileSearch, BarChart3, Camera
+  Target, Clock, ShieldCheck, Zap, KeyRound, FileSearch, Camera
 } from 'lucide-react';
 
 interface IndividualDeepDiveProps {
@@ -14,7 +15,6 @@ interface IndividualDeepDiveProps {
   evaluations: EvaluationRecord[];
   proofs: ProofRecord[];
   peerReviews: any[];
-  submissions: any[];
   qaRecords: QARecord[];
   onStaffChange: (id: string) => void;
   mode?: 'manager' | 'public';
@@ -98,8 +98,8 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
+         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl">
+            <div className="flex items-center justify-between mb-4">
                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">SLA Contribution</p>
                <ShieldCheck size={20} className="text-indigo-400" />
             </div>
@@ -107,15 +107,15 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
                {latestEval?.slaMetCount || 0}<span className="text-indigo-400 text-2xl font-black ml-1">/ {latestEval?.slaTotalBase || 0}</span>
             </h4>
          </div>
-         <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
+         <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-xl">
+            <div className="flex items-center justify-between mb-4">
                <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Avg Response</p>
                <Clock size={20} className="text-blue-200" />
             </div>
             <h4 className="text-5xl font-black tracking-tighter">{latestEval?.responseTimeMin || 0}<span className="text-blue-200 text-2xl font-black ml-1">min</span></h4>
          </div>
-         <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
+         <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-xl">
+            <div className="flex items-center justify-between mb-4">
                <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">True Avg QA</p>
                <FileSearch size={20} className="text-indigo-200" />
             </div>
@@ -161,6 +161,7 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
                     </div>
                   ) : (
                     memberProofs.map(proof => (
+                      // Fixed: use proof.id instead of p.id
                       <div key={proof.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                          <div className="flex justify-between items-center">
                             <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${proof.category === 'Positive' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>

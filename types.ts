@@ -1,4 +1,5 @@
 
+
 export interface StaffMember {
   id: string;
   name: string;
@@ -104,8 +105,19 @@ export interface MonthlySnapshotRecord {
   overallScore: number;
 }
 
-// Added missing types below for Assessment and Workload systems
+export interface PeerReviewRecord {
+  id: string;
+  targetStaffId: string;
+  reviewerName: string;
+  date: string;
+  timestamp: string;
+  teamworkScore: number;
+  helpfulnessScore: number;
+  communicationScore: number;
+  comment: string;
+}
 
+// Fixed: Added missing types for Assessment and Workload modules
 export type QuestionType = 'choice' | 'written';
 
 export interface TestQuestion {
@@ -137,18 +149,6 @@ export interface TestSubmission {
   date: string;
   answers: Record<string, string>;
   managerFeedback?: string;
-}
-
-export interface PeerReviewRecord {
-  id: string;
-  targetStaffId: string;
-  reviewerName: string;
-  date: string;
-  timestamp: string;
-  teamworkScore: number;
-  helpfulnessScore: number;
-  communicationScore: number;
-  comment: string;
 }
 
 export interface TaskConfig {

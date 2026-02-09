@@ -1,23 +1,20 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Database, Search, Calendar, User, FileText, PlusCircle, 
-  FileSearch, ArrowRight, ShieldCheck, X, Activity, 
-  PhoneIncoming, PhoneOutgoing, MessageCircle
+  Database, Search, PlusCircle, 
+  FileSearch, ShieldCheck, X, Archive, Calendar
 } from 'lucide-react';
-import { EvaluationRecord, QARecord } from '../types.ts';
+import { EvaluationRecord, QARecord, MonthlySnapshotRecord } from '../types.ts';
 import { TEAM_MEMBERS } from '../constants.tsx';
 
 interface MasterRecordProps {
   evaluations: EvaluationRecord[];
   qaRecords: QARecord[];
-  submissions: any[];
-  assessments: any[];
-  monthlySnapshots: any[];
+  monthlySnapshots?: MonthlySnapshotRecord[];
   onClearAll: () => void;
 }
 
-type RecordType = 'performance' | 'qa';
+type RecordType = 'performance' | 'qa' | 'monthly_snapshot';
 
 interface GenericRecord {
   id: string;
@@ -30,7 +27,7 @@ interface GenericRecord {
   rawData: any;
 }
 
-const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, onClearAll }) => {
+const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, monthlySnapshots = [], onClearAll }) => {
   const [filterType, setFilterType] = useState<'all' | RecordType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
@@ -57,10 +54,20 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, onC
         score: q.overallPercentage,
         detail: `Verified across ${q.sections.length} sections`,
         rawData: q
+      })),
+      ...monthlySnapshots.map(s => ({
+        id: s.id,
+        type: 'monthly_snapshot' as const,
+        staffName: 'Global Team',
+        date: s.date,
+        title: `Monthly Archive: ${s.monthYear}`,
+        score: s.overallScore,
+        detail: `SLA & Growth Snapshot`,
+        rawData: s
       }))
     ];
     return records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [evaluations, qaRecords]);
+  }, [evaluations, qaRecords, monthlySnapshots]);
 
   const filteredRecords = useMemo(() => {
     return allRecords.filter(r => {
@@ -74,6 +81,39 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, onC
 
   const renderDetailContent = () => {
     if (!viewingRecord) return null;
+    
+    if (viewingRecord.type === 'monthly_snapshot') {
+      const s = viewingRecord.rawData as MonthlySnapshotRecord;
+      return (
+        <div className="space-y-8">
+           <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-slate-50 rounded-2xl">
+                 <p className="text-[10px] font-black text-slate-400 uppercase">Restaurant SLA</p>
+                 <p className="text-2xl font-black">{s.projectSLA.restaurant.met}/{s.projectSLA.restaurant.total}</p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl">
+                 <p className="text-[10px] font-black text-slate-400 uppercase">Massage SLA</p>
+                 <p className="text-2xl font-black">{s.projectSLA.massage.met}/{s.projectSLA.massage.total}</p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl">
+                 <p className="text-[10px] font-black text-slate-400 uppercase">AI SLA</p>
+                 <p className="text-2xl font-black">{s.projectSLA.ai.met}/{s.projectSLA.ai.total}</p>
+              </div>
+           </div>
+           <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-blue-50 text-blue-700 rounded-2xl">
+                 <p className="text-[10px] font-black uppercase">CSAT Avg</p>
+                 <p className="text-2xl font-black">{s.otherKPIs.csat.met}/5</p>
+              </div>
+              <div className="p-4 bg-indigo-50 text-indigo-700 rounded-2xl">
+                 <p className="text-[10px] font-black uppercase">Response Speed</p>
+                 <p className="text-2xl font-black">{s.otherKPIs.responseSpeed.met}m</p>
+              </div>
+           </div>
+        </div>
+      );
+    }
+
     if (viewingRecord.type === 'qa') {
       const qa = viewingRecord.rawData as QARecord;
       return (
@@ -94,6 +134,7 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, onC
         </div>
       );
     }
+
     const ev = viewingRecord.rawData as EvaluationRecord;
     return (
       <div className="space-y-6">
@@ -116,10 +157,13 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, onC
     <div className="space-y-10 animate-in fade-in">
       {viewingRecord && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6">
-           <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden p-10 space-y-8">
+           <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden p-10 space-y-8 animate-in zoom-in-95">
               <div className="flex justify-between items-start">
-                 <h3 className="text-2xl font-black">{viewingRecord.title} - {viewingRecord.staffName}</h3>
-                 <button onClick={() => setViewingRecord(null)} className="p-2 text-slate-400 hover:text-black"><X /></button>
+                 <h3 className="text-2xl font-black">{viewingRecord.title}</h3>
+                 <button onClick={() => setViewingRecord(null)} className="p-2 text-slate-400 hover:text-black transition-colors"><X size={24}/></button>
+              </div>
+              <div className="pb-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{viewingRecord.staffName} • {viewingRecord.date}</p>
               </div>
               {renderDetailContent()}
            </div>
@@ -132,35 +176,57 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, onC
           <Database size={40} className="text-indigo-600" />
           <div>
             <h2 className="text-4xl font-black tracking-tight">Master Record Deck</h2>
-            <p className="text-slate-400 font-medium">Consolidated history of performance audits and QA checks</p>
+            <p className="text-slate-400 font-medium">Consolidated history of performance audits, QA checks, and monthly snapshots</p>
           </div>
         </div>
       </div>
 
       <div className="bg-white p-6 rounded-[2.5rem] flex flex-col md:flex-row gap-6 items-center border border-slate-100 shadow-sm">
-        <input type="text" placeholder="Search..." className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 font-bold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-        <select className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black" value={selectedStaff} onChange={(e) => setSelectedStaff(e.target.value)}>
-          <option value="all">All Staff</option>
-          {TEAM_MEMBERS.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-        </select>
+        <div className="flex-1 w-full relative">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input type="text" placeholder="Search..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-14 pr-6 font-bold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        </div>
+        <div className="flex gap-4 w-full md:w-auto">
+          <select className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black" value={filterType} onChange={(e) => setFilterType(e.target.value as any)}>
+            <option value="all">All Types</option>
+            <option value="performance">Perf Log</option>
+            <option value="qa">QA Audit</option>
+            <option value="monthly_snapshot">Snapshots</option>
+          </select>
+          <select className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black" value={selectedStaff} onChange={(e) => setSelectedStaff(e.target.value)}>
+            <option value="all">All Staff</option>
+            {TEAM_MEMBERS.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="space-y-4">
         {filteredRecords.map(r => (
           <div key={r.id} onClick={() => setViewingRecord(r)} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all cursor-pointer flex items-center justify-between group">
             <div className="flex items-center gap-4">
-              <div className={`p-4 rounded-xl ${r.type === 'qa' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                {r.type === 'qa' ? <FileSearch size={24} /> : <PlusCircle size={24} />}
+              <div className={`p-4 rounded-xl ${
+                r.type === 'qa' ? 'bg-emerald-50 text-emerald-600' : 
+                r.type === 'monthly_snapshot' ? 'bg-amber-50 text-amber-600' : 
+                'bg-indigo-50 text-indigo-600'
+              }`}>
+                {r.type === 'qa' ? <ShieldCheck size={24} /> : r.type === 'monthly_snapshot' ? <Archive size={24} /> : <PlusCircle size={24} />}
               </div>
               <div>
-                <h4 className="font-black text-slate-900">{r.title} • {r.staffName}</h4>
-                <p className="text-xs text-slate-400 font-bold">{r.date}</p>
+                <h4 className="font-black text-slate-900">{r.title}</h4>
+                <p className="text-xs text-slate-400 font-bold flex items-center gap-2"><Calendar size={12}/> {r.date} • {r.staffName}</p>
               </div>
             </div>
             <div className="text-2xl font-black text-slate-800">{r.score}%</div>
           </div>
         ))}
       </div>
+      
+      {filteredRecords.length === 0 && (
+        <div className="py-20 text-center border-4 border-dashed border-slate-100 rounded-[3rem] text-slate-200">
+           <Database size={48} className="mx-auto mb-4" />
+           <p className="font-black uppercase tracking-widest">No matching records found</p>
+        </div>
+      )}
     </div>
   );
 };
