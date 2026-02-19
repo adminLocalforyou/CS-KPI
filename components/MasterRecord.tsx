@@ -110,6 +110,26 @@ const MasterRecord: React.FC<MasterRecordProps> = ({ evaluations, qaRecords, mon
                  <p className="text-2xl font-black">{s.otherKPIs.responseSpeed.met}m</p>
               </div>
            </div>
+           <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-purple-50 text-purple-700 rounded-2xl">
+                 <p className="text-[10px] font-black uppercase">Retention Rate</p>
+                 <p className="text-2xl font-black">
+                   {s.growthMetrics.retention.startCount > 0 
+                     ? Math.round(((s.growthMetrics.retention.startCount - s.growthMetrics.retention.cancelledCount) / s.growthMetrics.retention.startCount) * 100) 
+                     : 0}%
+                 </p>
+                 <p className="text-[9px] font-bold opacity-60">({s.growthMetrics.retention.startCount - s.growthMetrics.retention.cancelledCount}/{s.growthMetrics.retention.startCount})</p>
+              </div>
+              <div className="p-4 bg-orange-50 text-orange-700 rounded-2xl">
+                 <p className="text-[10px] font-black uppercase">Return Rate</p>
+                 <p className="text-2xl font-black">
+                   {s.growthMetrics.returnRate.totalCount > 0 
+                     ? Math.round((s.growthMetrics.returnRate.rejoinedCount / s.growthMetrics.returnRate.totalCount) * 100) 
+                     : 0}%
+                 </p>
+                 <p className="text-[9px] font-bold opacity-60">({s.growthMetrics.returnRate.rejoinedCount}/{s.growthMetrics.returnRate.totalCount})</p>
+              </div>
+           </div>
         </div>
       );
     }

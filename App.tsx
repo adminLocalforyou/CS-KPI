@@ -66,8 +66,8 @@ const App: React.FC = () => {
   }));
 
   const [growthMetrics, setGrowthMetrics] = useState<GrowthMetrics>(() => loadState('cs_growth_metrics_v1', {
-    retention: { startCount: 0, endCount: 0, newCount: 0 },
-    returnRate: { returningCount: 0, totalCount: 0 }
+    retention: { startCount: 0, cancelledCount: 0 },
+    returnRate: { rejoinedCount: 0, totalCount: 0 }
   }));
 
   useEffect(() => {
@@ -253,11 +253,11 @@ const App: React.FC = () => {
                    <StatCard label="Overall Index" value={`${globalStats.overallPerf}%`} sub="GLOBAL WEIGHTED AVG" icon={Activity} color="indigo" />
                    <StatCard label="Team QA Avg" value={`${Math.round(qaRecords.reduce((a,b)=>a+b.overallPercentage,0)/(qaRecords.length||1))}%`} sub="QUALITY CONSISTENCY" icon={ShieldCheck} color="blue" />
                    <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="BUILDING VOLUME MET" icon={Target} color="orange" />
-                   <StatCard label="Retention" value={`${growthMetrics.retention.startCount > 0 ? Math.round((growthMetrics.retention.endCount/growthMetrics.retention.startCount)*100) : 0}%`} sub="CUSTOMER LOYALTY" icon={User} color="purple" />
+                   <StatCard label="Retention" value={`${growthMetrics.retention.startCount > 0 ? Math.round(((growthMetrics.retention.startCount - growthMetrics.retention.cancelledCount) / growthMetrics.retention.startCount) * 100) : 0}%`} sub="CUSTOMER LOYALTY" icon={User} color="purple" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  <StatCard label="Return Rate" value={`${growthMetrics.returnRate.totalCount > 0 ? Math.round((growthMetrics.returnRate.returningCount/growthMetrics.returnRate.totalCount)*100) : 0}%`} sub="REPEAT BUSINESS" icon={Zap} color="orange" />
+                  <StatCard label="Return Rate" value={`${growthMetrics.returnRate.totalCount > 0 ? Math.round((growthMetrics.returnRate.rejoinedCount / growthMetrics.returnRate.totalCount) * 100) : 0}%`} sub="REPEAT BUSINESS" icon={Zap} color="orange" />
                   <StatCard label="CSAT Index" value={`${globalStats.csatAvg.toFixed(1)}/5`} sub="SATISFACTION INDEX" icon={Smile} color="emerald" />
                   <StatCard label="Avg Response" value={`${globalStats.avgSpeed} min`} sub="DAILY OPERATIONAL SPEED" icon={Timer} color="purple" />
                 </div>
@@ -363,21 +363,21 @@ const App: React.FC = () => {
                            </div>
                         </div>
                       </div>
-                      <div className="space-y-6">
+                       <div className="space-y-6">
                         <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><User size={14}/> Growth Stats</h5>
                         <div className="grid grid-cols-2 gap-6">
                            <div className="bg-slate-50 p-6 rounded-3xl">
-                              <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">Retention (End/Start)</label>
+                              <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">Retention ((Start-Cancel)/Start)</label>
                               <div className="flex gap-2">
-                                <input type="number" placeholder="End" value={growthMetrics.retention.endCount} onChange={(e) => setGrowthMetrics({...growthMetrics, retention: {...growthMetrics.retention, endCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
                                 <input type="number" placeholder="Start" value={growthMetrics.retention.startCount} onChange={(e) => setGrowthMetrics({...growthMetrics, retention: {...growthMetrics.retention, startCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
+                                <input type="number" placeholder="Cancel" value={growthMetrics.retention.cancelledCount} onChange={(e) => setGrowthMetrics({...growthMetrics, retention: {...growthMetrics.retention, cancelledCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
                               </div>
                            </div>
                            <div className="bg-slate-50 p-6 rounded-3xl">
-                              <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">Return (Returning/Total)</label>
+                              <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">Return (Rejoin/Total)</label>
                               <div className="flex gap-2">
-                                <input type="number" placeholder="Ret" value={growthMetrics.returnRate.returningCount} onChange={(e) => setGrowthMetrics({...growthMetrics, returnRate: {...growthMetrics.returnRate, returningCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
-                                <input type="number" placeholder="Tot" value={growthMetrics.returnRate.totalCount} onChange={(e) => setGrowthMetrics({...growthMetrics, returnRate: {...growthMetrics.returnRate, totalCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
+                                <input type="number" placeholder="Rejoin" value={growthMetrics.returnRate.rejoinedCount} onChange={(e) => setGrowthMetrics({...growthMetrics, returnRate: {...growthMetrics.returnRate, rejoinedCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
+                                <input type="number" placeholder="Total" value={growthMetrics.returnRate.totalCount} onChange={(e) => setGrowthMetrics({...growthMetrics, returnRate: {...growthMetrics.returnRate, totalCount: parseInt(e.target.value)||0}})} className="w-full bg-white border border-slate-100 p-4 rounded-xl font-black text-sm outline-none" />
                               </div>
                            </div>
                         </div>

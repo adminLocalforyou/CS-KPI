@@ -11,11 +11,10 @@ export type ProjectSubCategory = 'Restaurant' | 'Massage' | 'AI Receptionist';
 export interface GrowthMetrics {
   retention: {
     startCount: number;
-    endCount: number;
-    newCount: number;
+    cancelledCount: number;
   };
   returnRate: {
-    returningCount: number;
+    rejoinedCount: number;
     totalCount: number;
   };
 }
