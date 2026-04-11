@@ -6,12 +6,13 @@ import {
   Camera, Smile, Timer,
   Lock, LogOut, Database,
   UserRound, ArrowLeftCircle, Menu,
-  ArrowRight, ExternalLink, Store, Stethoscope, Bot, Archive, Sparkles
+  ArrowRight, ExternalLink, Store, Stethoscope, Bot, Archive, Sparkles,
+  GraduationCap, PenTool
 } from 'lucide-react';
 import { TEAM_MEMBERS, INITIAL_EVALUATIONS } from './constants.tsx';
 import { 
   EvaluationRecord, QARecord, ProofRecord, GrowthMetrics, 
-  MonthlySnapshotRecord
+  MonthlySnapshotRecord, AssessmentRecord
 } from './types.ts';
 
 // Components
@@ -23,6 +24,9 @@ import QAChecklist from './components/QAChecklist.tsx';
 import ProofVault from './components/ProofVault.tsx';
 import MasterRecord from './components/MasterRecord.tsx';
 import StaffHub from './components/StaffHub.tsx';
+import AssessmentCenter from './components/AssessmentCenter.tsx';
+import TakeTest from './components/TakeTest.tsx';
+import GradingDesk from './components/GradingDesk.tsx';
 
 const APP_VERSION = "5.3.1-LITE";
 
@@ -36,7 +40,7 @@ const loadState = <T,>(key: string, defaultValue: T): T => {
 };
 
 const App: React.FC = () => {
-  type Tab = 'dashboard' | 'evaluate' | 'individual' | 'qa' | 'proof' | 'masterRecord' | 'publicStaffAnalysis';
+  type Tab = 'dashboard' | 'evaluate' | 'individual' | 'qa' | 'proof' | 'masterRecord' | 'publicStaffAnalysis' | 'assessment' | 'grading';
   
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -70,6 +74,30 @@ const App: React.FC = () => {
     returnRate: { rejoinedCount: 0, totalCount: 0 }
   }));
 
+  const [assessments, setAssessments] = useState<AssessmentRecord[]>(() => loadState('cs_assessments_v1', []));
+  const [submissions, setSubmissions] = useState<any[]>(() => loadState('cs_submissions_v1', []));
+  const [activeTestId, setActiveTestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#import=')) {
+      try {
+        const encoded = hash.split('=')[1];
+        const decoded = JSON.parse(decodeURIComponent(atob(encoded)));
+        if (decoded && decoded.id) {
+          setActiveTestId(decoded.id);
+          // Check if this assessment already exists, if not add it temporarily to local state
+          setAssessments(prev => {
+            if (prev.find(a => a.id === decoded.id)) return prev;
+            return [...prev, decoded];
+          });
+        }
+      } catch (e) {
+        console.error("Import error", e);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('cs_evaluations_v3', JSON.stringify(evaluations));
     localStorage.setItem('cs_qa_records_v1', JSON.stringify(qaRecords));
@@ -78,16 +106,19 @@ const App: React.FC = () => {
     localStorage.setItem('cs_other_kpis_v1', JSON.stringify(otherKPIs));
     localStorage.setItem('cs_growth_metrics_v1', JSON.stringify(growthMetrics));
     localStorage.setItem('cs_monthly_snapshots_v1', JSON.stringify(monthlySnapshots));
-  }, [evaluations, qaRecords, proofRecords, projectSLA, otherKPIs, growthMetrics, monthlySnapshots]);
+    localStorage.setItem('cs_assessments_v1', JSON.stringify(assessments));
+    localStorage.setItem('cs_submissions_v1', JSON.stringify(submissions));
+  }, [evaluations, qaRecords, proofRecords, projectSLA, otherKPIs, growthMetrics, monthlySnapshots, assessments, submissions]);
 
   const handleTabSwitch = (tab: Tab) => {
-    const managerTabs: Tab[] = ['evaluate', 'qa', 'individual', 'proof', 'masterRecord'];
+    const managerTabs: Tab[] = ['evaluate', 'qa', 'individual', 'proof', 'masterRecord', 'assessment', 'grading'];
     if (managerTabs.includes(tab) && !isManager) {
       setPendingTab(tab);
       setShowPasscodeModal(true);
     } else {
       setActiveTab(tab);
       if (tab === 'publicStaffAnalysis') setPublicActiveStaffId(null);
+      if (tab !== 'assessment') setActiveTestId(null);
     }
   };
 
@@ -212,6 +243,8 @@ const App: React.FC = () => {
             {isSidebarOpen && <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Management</p>}
             <SidebarItem id="evaluate" label="Performance Log" icon={PlusCircle} active={activeTab === 'evaluate'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('evaluate')} />
             <SidebarItem id="qa" label="QA Audit" icon={ShieldCheck} active={activeTab === 'qa'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('qa')} />
+            <SidebarItem id="assessment" label="Assessment Center" icon={GraduationCap} active={activeTab === 'assessment'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('assessment')} />
+            <SidebarItem id="grading" label="Grading Desk" icon={PenTool} active={activeTab === 'grading'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('grading')} />
             <SidebarItem id="individual" label="Deep Dive" icon={User} active={activeTab === 'individual'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('individual')} />
             <SidebarItem id="proof" label="Proof Vault" icon={Camera} active={activeTab === 'proof'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('proof')} />
             <SidebarItem id="masterRecord" label="Master Record" icon={Database} active={activeTab === 'masterRecord'} collapsed={!isSidebarOpen} isLocked={!isManager} onClick={() => handleTabSwitch('masterRecord')} />
@@ -252,7 +285,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                    <StatCard label="Overall Index" value={`${globalStats.overallPerf}%`} sub="GLOBAL WEIGHTED AVG" icon={Activity} color="indigo" />
                    <StatCard label="Team QA Avg" value={`${Math.round(qaRecords.reduce((a,b)=>a+b.overallPercentage,0)/(qaRecords.length||1))}%`} sub="QUALITY CONSISTENCY" icon={ShieldCheck} color="blue" />
-                   <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="BUILDING VOLUME MET" icon={Target} color="orange" />
+                   <StatCard label="Project SLA" value={`${globalStats.overallSla}%`} sub="RESTAURANT ≤10D | MASSAGE ≤15D" icon={Target} color="orange" />
                    <StatCard label="Retention" value={`${growthMetrics.retention.startCount > 0 ? Math.round(((growthMetrics.retention.startCount - growthMetrics.retention.cancelledCount) / growthMetrics.retention.startCount) * 100) : 0}%`} sub="CUSTOMER LOYALTY" icon={User} color="purple" />
                 </div>
 
@@ -428,6 +461,33 @@ const App: React.FC = () => {
 
            {activeTab === 'evaluate' && <EvaluationForm onAdd={(recs) => setEvaluations([...evaluations, ...recs])} projectSLA={projectSLA} />}
            {activeTab === 'qa' && <QAChecklist onSave={(rec) => setQaRecords([...qaRecords, rec])} />}
+           {activeTab === 'assessment' && (
+             activeTestId ? (
+               <TakeTest 
+                 test={assessments.find(a => a.id === activeTestId)} 
+                 submissions={submissions} 
+                 onSubmit={(s) => setSubmissions([...submissions, s])} 
+               />
+             ) : (
+               <AssessmentCenter 
+                 assessments={assessments} 
+                 onSave={(rec) => setAssessments(prev => {
+                   const exists = prev.find(a => a.id === rec.id);
+                   if (exists) return prev.map(a => a.id === rec.id ? rec : a);
+                   return [...prev, rec];
+                 })}
+                 onTakeTest={(id) => setActiveTestId(id)}
+                 onDelete={(id) => setAssessments(assessments.filter(a => a.id !== id))}
+               />
+             )
+           )}
+           {activeTab === 'grading' && (
+             <GradingDesk 
+               submissions={submissions} 
+               assessments={assessments} 
+               onUpdate={(updated) => setSubmissions(submissions.map(s => s.id === updated.id ? updated : s))} 
+             />
+           )}
            {activeTab === 'individual' && <IndividualDeepDive staffId={selectedStaffId} evaluations={evaluations} proofs={proofRecords} peerReviews={[]} qaRecords={qaRecords} onStaffChange={setSelectedStaffId} />}
            {activeTab === 'proof' && <ProofVault proofs={proofRecords} onAdd={(p) => setProofRecords([...proofRecords, p])} onDelete={(id) => setProofRecords(proofRecords.filter(p => p.id !== id))} />}
            {activeTab === 'masterRecord' && <MasterRecord evaluations={evaluations} qaRecords={qaRecords} monthlySnapshots={monthlySnapshots} onClearAll={handleClearAllData} />}

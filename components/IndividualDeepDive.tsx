@@ -63,6 +63,12 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
     return Math.round(sumPct / memberQaRecords.length);
   }, [memberQaRecords]);
 
+  const projectLoad = useMemo(() => {
+    if (!latestEval) return 0;
+    const capacity = staff.name === 'Pume' ? 2 : 4;
+    return Math.round((latestEval.projectCount / capacity) * 100);
+  }, [latestEval, staff.name]);
+
   const handleUnlock = () => {
     if (staff && pinInput === staff.passcode) {
       setIsUnlocked(true);
@@ -97,7 +103,7 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl">
             <div className="flex items-center justify-between mb-4">
                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">SLA Contribution</p>
@@ -120,6 +126,14 @@ const IndividualDeepDive: React.FC<IndividualDeepDiveProps> = ({ staffId, evalua
                <FileSearch size={20} className="text-indigo-200" />
             </div>
             <h4 className="text-5xl font-black tracking-tighter">{averageQaScore}<span className="text-indigo-200 text-2xl font-black ml-1">%</span></h4>
+         </div>
+         <div className="bg-emerald-600 rounded-[2.5rem] p-8 text-white shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+               <p className="text-[10px] font-black text-emerald-200 uppercase tracking-widest">Project Load</p>
+               <Zap size={20} className="text-emerald-200" />
+            </div>
+            <h4 className="text-5xl font-black tracking-tighter">{projectLoad}<span className="text-emerald-200 text-2xl font-black ml-1">%</span></h4>
+            <p className="text-[9px] font-bold text-emerald-200/60 mt-2 uppercase tracking-widest">Capacity: {staff.name === 'Pume' ? 2 : 4} Proj</p>
          </div>
       </div>
 

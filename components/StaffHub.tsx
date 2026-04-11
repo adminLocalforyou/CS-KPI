@@ -17,10 +17,10 @@ interface StaffHubProps {
 }
 
 const BUDDY_PAIRS: Record<string, string | null> = {
-  'Pookie': 'Gam',
-  'Gam': 'Pookie',
-  'Namva': 'TBA 1',
-  'TBA 1': 'Namva',
+  'Pookie': 'Pei Pei',
+  'Pei Pei': 'Pookie',
+  'Namva': 'Nick',
+  'Nick': 'Namva',
   'Aim': 'Noey',
   'Noey': 'Aim',
   'Pume': null
@@ -86,6 +86,9 @@ const StaffHub: React.FC<StaffHubProps> = ({ teamPerformance, evaluations, qaRec
 
       const workloadPrompt = `
         Analyze CS workload balance in THAI.
+        Special Rules:
+        - Pume (ภูมิ) is expected to have DOUBLE the call volume of others because he handles first-line calls before transferring.
+        - Pume's project capacity is 2 projects (others are 4).
         Data: ${JSON.stringify(workloadData)}
         Format as JSON object: { "StaffName": "Brief Thai Explanation (max 15 words)" }
       `;

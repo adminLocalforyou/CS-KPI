@@ -28,7 +28,7 @@ const DETAILED_RUBRICS = {
     color: "blue",
     questions: [
       { id: 'scoreA', title: "Communication & Clarity", options: [{ score: 100, label: "Excellent" }, { score: 80, label: "Standard" }, { score: 60, label: "Fair" }, { score: 40, label: "Needs Help" }, { score: 20, label: "Critical" }] },
-      { id: 'scoreB', title: "Setup Speed & SLA", options: [{ score: 100, label: "Fast-Track" }, { score: 80, label: "On Target" }, { score: 60, label: "Minor Delay" }, { score: 40, label: "Lagging" }, { score: 20, label: "Stalled" }] },
+      { id: 'scoreB', title: "Setup Speed & SLA", options: [{ score: 100, label: "Met Standard" }, { score: 20, label: "Poor" }] },
       { id: 'scoreC', title: "SOP Quality", options: [{ score: 100, label: "Flawless" }, { score: 80, label: "Solid" }, { score: 60, label: "Basic" }, { score: 40, label: "Incomplete" }, { score: 20, label: "Risk Prone" }] }
     ]
   },
@@ -63,7 +63,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, projectSLA }) =>
   });
   
   const [metrics, setMetrics] = useState({
-    slaMetCount: 0, responseTimeMin: 5, projectCount: 0,
+    slaMetCount: 0, responseTimeMin: 5, projectCount: 0, daysToLive: 0,
     incomingCalls: 0, outgoingCalls: 0, totalChats: 0, totalTasks: 0,
     note: '', caseRef: ''
   });
@@ -97,7 +97,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, projectSLA }) =>
       individualSlaPct: calculatedSlaPct,
       responseTimeMin: metrics.responseTimeMin,
       projectCount: metrics.projectCount,
-      daysToLive: 0,
+      daysToLive: metrics.daysToLive,
       stepsCompleted: scores[type].scoreC >= 80 ? 10 : 7,
       incomingCalls: metrics.incomingCalls,
       outgoingCalls: metrics.outgoingCalls,
@@ -113,6 +113,9 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, projectSLA }) =>
     alert("บันทึก Performance สำเร็จ!");
   };
 
+  const selectedStaff = TEAM_MEMBERS.find(m => m.id === staffId);
+  const isPume = selectedStaff?.name === 'Pume';
+
   return (
     <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-slate-100 max-w-6xl mx-auto mb-20">
       <div className="flex items-center gap-6 mb-12 pb-8 border-b border-slate-50">
@@ -124,29 +127,67 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, projectSLA }) =>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-16">
-        <div className="bg-slate-50 p-8 rounded-[3rem]">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Staff Member</label>
-          <select className="w-full bg-transparent font-black text-2xl text-slate-800 outline-none" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
-            {TEAM_MEMBERS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+        <div className="bg-slate-50 p-8 rounded-[3rem] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Staff Member</label>
+            <select className="w-full bg-transparent font-black text-2xl text-slate-800 outline-none" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+              {TEAM_MEMBERS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+          {isPume && (
+            <div className="bg-blue-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest animate-pulse">
+              Special Role: First-Line Support & Coordinator
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
           <div className="bg-blue-900 rounded-[3rem] p-10 text-white space-y-8">
-             <h4 className="font-black text-lg uppercase flex items-center gap-3"><Zap className="text-blue-400" /> SLA & Efficiency</h4>
-             <div className="grid grid-cols-3 gap-6">
-                <input type="number" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="SLA Met" value={metrics.slaMetCount} onChange={(e) => setMetrics({...metrics, slaMetCount: parseInt(e.target.value) || 0})} />
-                <input type="number" step="0.1" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="Min" value={metrics.responseTimeMin} onChange={(e) => setMetrics({...metrics, responseTimeMin: parseFloat(e.target.value) || 0})} />
-                <input type="number" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="Proj" value={metrics.projectCount} onChange={(e) => setMetrics({...metrics, projectCount: parseInt(e.target.value) || 0})} />
+             <div className="flex items-center justify-between">
+               <h4 className="font-black text-lg uppercase flex items-center gap-3"><Zap className="text-blue-400" /> SLA & Efficiency</h4>
+               <span className="text-[10px] font-black text-blue-300 uppercase tracking-widest">Max: {isPume ? 2 : 4} Proj</span>
+             </div>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-blue-300 uppercase tracking-widest">SLA Met (อาหาร≤10ว. / นวด≤15ว.)</label>
+                  <input type="number" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="SLA Met" value={metrics.slaMetCount} onChange={(e) => setMetrics({...metrics, slaMetCount: parseInt(e.target.value) || 0})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-blue-300 uppercase tracking-widest">Days to Live (วันเปิดร้าน)</label>
+                  <input type="number" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="Days" value={metrics.daysToLive} onChange={(e) => setMetrics({...metrics, daysToLive: parseInt(e.target.value) || 0})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-blue-300 uppercase tracking-widest">Avg Speed (นาที)</label>
+                  <input type="number" step="0.1" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="Min" value={metrics.responseTimeMin} onChange={(e) => setMetrics({...metrics, responseTimeMin: parseFloat(e.target.value) || 0})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-blue-300 uppercase tracking-widest">Projects (โปรเจกต์)</label>
+                  <input type="number" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="Proj" value={metrics.projectCount} onChange={(e) => setMetrics({...metrics, projectCount: parseInt(e.target.value) || 0})} />
+                </div>
              </div>
           </div>
           <div className="bg-slate-900 rounded-[3rem] p-10 text-white space-y-8">
-             <h4 className="font-black text-lg uppercase flex items-center gap-3"><BarChart3 className="text-indigo-400" /> Workload Summary</h4>
+             <div className="flex items-center justify-between">
+               <h4 className="font-black text-lg uppercase flex items-center gap-3"><BarChart3 className="text-indigo-400" /> Workload Summary</h4>
+               {isPume && <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Expected: 2x Volume</span>}
+             </div>
              <div className="grid grid-cols-4 gap-4">
-                <input type="number" className="w-full bg-white/5 rounded-xl p-3 font-black outline-none" placeholder="Inc" value={metrics.incomingCalls} onChange={(e) => setMetrics({...metrics, incomingCalls: parseInt(e.target.value) || 0})} />
-                <input type="number" className="w-full bg-white/5 rounded-xl p-3 font-black outline-none" placeholder="Out" value={metrics.outgoingCalls} onChange={(e) => setMetrics({...metrics, outgoingCalls: parseInt(e.target.value) || 0})} />
-                <input type="number" className="w-full bg-white/5 rounded-xl p-3 font-black outline-none" placeholder="Chat" value={metrics.totalChats} onChange={(e) => setMetrics({...metrics, totalChats: parseInt(e.target.value) || 0})} />
-                <input type="number" className="w-full bg-white/5 rounded-xl p-3 font-black outline-none" placeholder="Task" value={metrics.totalTasks} onChange={(e) => setMetrics({...metrics, totalTasks: parseInt(e.target.value) || 0})} />
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Incoming</label>
+                  <input type="number" className="w-full bg-white/5 rounded-xl p-3 font-black outline-none" placeholder="Inc" value={metrics.incomingCalls} onChange={(e) => setMetrics({...metrics, incomingCalls: parseInt(e.target.value) || 0})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Outgoing</label>
+                  <input type="number" className="w-full bg-white/5 rounded-xl p-3 font-black outline-none" placeholder="Out" value={metrics.outgoingCalls} onChange={(e) => setMetrics({...metrics, outgoingCalls: parseInt(e.target.value) || 0})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Chats</label>
+                  <input type="number" className="w-full bg-white/5 rounded-xl p-3 font-black outline-none" placeholder="Chat" value={metrics.totalChats} onChange={(e) => setMetrics({...metrics, totalChats: parseInt(e.target.value) || 0})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Tasks</label>
+                  <input type="number" className="w-full bg-white/5 rounded-xl p-3 font-black outline-none" placeholder="Task" value={metrics.totalTasks} onChange={(e) => setMetrics({...metrics, totalTasks: parseInt(e.target.value) || 0})} />
+                </div>
              </div>
           </div>
         </div>
