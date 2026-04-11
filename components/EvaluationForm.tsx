@@ -63,7 +63,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, projectSLA }) =>
   });
   
   const [metrics, setMetrics] = useState({
-    slaMetCount: 0, responseTimeMin: 5, projectCount: 0, daysToLive: 0,
+    slaMetCount: 0, responseTimeMin: 5, projectCount: 0,
     incomingCalls: 0, outgoingCalls: 0, totalChats: 0, totalTasks: 0,
     note: '', caseRef: ''
   });
@@ -97,7 +97,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, projectSLA }) =>
       individualSlaPct: calculatedSlaPct,
       responseTimeMin: metrics.responseTimeMin,
       projectCount: metrics.projectCount,
-      daysToLive: metrics.daysToLive,
+      daysToLive: 0,
       stepsCompleted: scores[type].scoreC >= 80 ? 10 : 7,
       incomingCalls: metrics.incomingCalls,
       outgoingCalls: metrics.outgoingCalls,
@@ -147,14 +147,10 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({ onAdd, projectSLA }) =>
                <h4 className="font-black text-lg uppercase flex items-center gap-3"><Zap className="text-blue-400" /> SLA & Efficiency</h4>
                <span className="text-[10px] font-black text-blue-300 uppercase tracking-widest">Max: {isPume ? 2 : 4} Proj</span>
              </div>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-blue-300 uppercase tracking-widest">SLA Met (อาหาร≤10ว. / นวด≤15ว.)</label>
                   <input type="number" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="SLA Met" value={metrics.slaMetCount} onChange={(e) => setMetrics({...metrics, slaMetCount: parseInt(e.target.value) || 0})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-blue-300 uppercase tracking-widest">Days to Live (วันเปิดร้าน)</label>
-                  <input type="number" className="w-full bg-white/10 rounded-xl p-3 font-black outline-none" placeholder="Days" value={metrics.daysToLive} onChange={(e) => setMetrics({...metrics, daysToLive: parseInt(e.target.value) || 0})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-blue-300 uppercase tracking-widest">Avg Speed (นาที)</label>
